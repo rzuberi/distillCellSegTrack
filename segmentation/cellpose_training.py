@@ -82,6 +82,7 @@ if __name__ == '__main__':
     X_train, X_test, y_train, y_test = train_test_split(images, masks, test_size=0.2, random_state=42)
 
     #import our trained cellpose model
+    #maybe we should add "model_type='cyto'" to the model before training it
     model = models.CellposeModel(gpu=core.use_gpu(), pretrained_model='segmentation/train_dir/models/cellpose_trained_model')
     predicted_masks = model.eval(X_test, batch_size=1, channels=[0,0], diameter=model.diam_labels)[0]
     #binarise the predicted masks
