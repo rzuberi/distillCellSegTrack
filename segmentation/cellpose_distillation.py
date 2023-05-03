@@ -146,14 +146,14 @@ def get_dice(predicted_masks,gt_masks):
 if __name__ == '__main__':
 
     #import the 02 images and masks
-    images, masks = get_data("c:\\Users\\rz200\\Documents\\development\\distillCellSegTrack\\" + 'datasets/Fluo-N2DL-HeLa/',num_imgs=92)
+    images, masks = get_data("c:\\Users\\rz200\\Documents\\development\\distillCellSegTrack\\" + 'datasets/Fluo-N2DH-GOWT1/',num_imgs=92)
 
     #split the images and masks into train and test sets
     X_train, X_test, y_train, y_test = train_test_split(images, masks, test_size=0.2, random_state=42)
     print('split data')
 
     #make the cellpose model predict on the X_train and X_test images
-    cellpose_model = models.CellposeModel(gpu=core.use_gpu(), pretrained_model='/Users/rz200/Documents/development/distillCellSegTrack/segmentation/train_dir/models/cellpose_trained_model')
+    cellpose_model = models.CellposeModel(gpu=core.use_gpu(), pretrained_model='/Users/rz200/Documents/development/distillCellSegTrack/segmentation/train_dir/models/cellpose_trained_model_GOWT1')
     y_train_cp = get_cellpose_predictions(cellpose_model,X_train,binary=True)
     y_test_cp = get_cellpose_predictions(cellpose_model,X_test,binary=True)
     print('got cellpose predictions')
