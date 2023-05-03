@@ -35,7 +35,7 @@ def train_model(images,masks,n_epochs,model_name):
     print(len(X_train), len(X_test), len(y_train), len(y_test))
     
     logger = io.logger_setup()
-    model = models.CellposeModel(gpu=core.use_gpu(), model_type='cyto')
+    model = models.CellposeModel(gpu=core.use_gpu())
     new_model_path = model.train(X_train, y_train, 
                               test_data=X_test,
                               test_labels=y_test,
@@ -77,7 +77,7 @@ if __name__ == '__main__':
     print(type(images),type(masks))
     print(images[0].shape[0])
     print(masks[0].shape[0])
-    train_model(images,masks,500,'cellpose_trained_model')
+    train_model(images,masks,60,'cellpose_trained_model')
 
     X_train, X_test, y_train, y_test = train_test_split(images, masks, test_size=0.2, random_state=42)
 
