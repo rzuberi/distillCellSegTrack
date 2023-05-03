@@ -26,14 +26,14 @@ import matplotlib.pyplot as plt
 #import data function
 def get_data(path, num_imgs=4):
 
-    images_path = path + '02/'
+    images_path = path + '01/'
     onlyfiles = [f for f in listdir(images_path) if isfile(join(images_path, f))]
     onlyfiles.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
     if num_imgs > len(onlyfiles): num_imgs = len(onlyfiles)
     images = [np.squeeze(tifffile.imread(images_path +  onlyfiles[i])) for i in range(num_imgs)]
     images = [(image-np.min(image))/(np.max(image)-np.min(image)) for image in images]
     
-    masks_path = path + '02_GT/TRA/'
+    masks_path = path + '01_GT/TRA/'
     onlyfiles = [f for f in listdir(masks_path) if isfile(join(masks_path, f))][1:]
     onlyfiles.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
     if num_imgs > len(onlyfiles): num_imgs = len(onlyfiles)
@@ -155,12 +155,12 @@ if __name__ == '__main__':
     print('split data')
 
     #make the cellpose model predict on the X_train and X_test images
-    cellpose_model = models.CellposeModel(gpu=core.use_gpu(), pretrained_model='segmentation/train_dir/models/cellpose_trained_model')
+    cellpose_model = models.CellposeModel(gpu=core.use_gpu(), pretrained_model='/Users/rz200/Documents/development/distillCellSegTrack/segmentation/train_dir/models/cellpose_trained_model')
     y_train_cp = get_cellpose_predictions(cellpose_model,X_train,binary=True)
     y_test_cp = get_cellpose_predictions(cellpose_model,X_test,binary=True)
     print('got cellpose predictions')
 
-    train_model = False
+    train_model = True
     if train_model:
         #augment the data
         for i in range(len(X_train)):
@@ -184,7 +184,7 @@ if __name__ == '__main__':
         optimiser = torch.optim.RMSprop(model.parameters(), lr=0.001)
 
         #train the model
-        for epoch in range(10):
+        for epoch in range(30):
             dice = train_epoch(model, train_loader, test_loader, loss_fn, torch.sigmoid, optimiser)
             print(dice)
 
