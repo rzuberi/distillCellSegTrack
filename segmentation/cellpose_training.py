@@ -9,23 +9,45 @@ from cellpose import models, io, core
 import time
 from sklearn.model_selection import train_test_split
 from statistics import mean
+import torch
 
-def get_data(path, num_imgs=4):
+def get_files(path,normalise=False,remove_txt=False):
+    onlyfiles = [f for f in listdir(path) if isfile(join(path, f))]
 
-    images_path = path + '01/'
-    onlyfiles = [f for f in listdir(images_path) if isfile(join(images_path, f))]
+    if remove_txt:
+        onlyfiles = [val for val in onlyfiles if not val.endswith(".txt")]
+
     onlyfiles.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
-    if num_imgs > len(onlyfiles): num_imgs = len(onlyfiles)
-    images = [np.squeeze(tifffile.imread(images_path +  onlyfiles[i])) for i in range(num_imgs)]
-    images = [(image-np.min(image))/(np.max(image)-np.min(image)) for image in images]
+    #if num_imgs > len(onlyfiles): num_imgs = len(onlyfiles)
+    files = [np.squeeze(tifffile.imread(path +  onlyfiles[i])) for i in range(len(onlyfiles))]
     
-    masks_path = path + '01_GT/TRA/'
-    onlyfiles = [f for f in listdir(masks_path) if isfile(join(masks_path, f))][1:]
-    onlyfiles.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
-    if num_imgs > len(onlyfiles): num_imgs = len(onlyfiles)
-    masks = [np.squeeze(tifffile.imread(masks_path +  onlyfiles[i])) for i in range(num_imgs)]
-    #binarise the masks
-    #masks = [np.where(mask>0,1,0) for mask in masks]
+    if normalise:
+        files = [(image-np.min(image))/(np.max(image)-np.min(image)) for image in files]
+    
+    return files
+    
+def get_data(path, set='01',normalise_images=True):
+
+    if len(set) == 2: #set 01 or set 02
+        images_path = path + set + '/'
+        images = get_files(images_path,normalise=normalise_images)
+        masks_path = path + set + '_GT/TRA/'
+        masks = get_files(masks_path,remove_txt=True)
+    elif set == '0102': #both sets
+        images_path = path + '01/'
+        images_01 = get_files(images_path,normalise=normalise_images)
+        images_path = path + '02/'
+        images_02 = get_files(images_path,normalise=normalise_images)
+        images = images_01 + images_02
+
+        masks_path = path + '01_GT/TRA/'
+        masks_01 = get_files(masks_path,remove_txt=True)
+        masks_path = path + '02_GT/TRA/'
+        masks_02 = get_files(masks_path,remove_txt=True)
+        masks = masks_01 + masks_02
+    else:
+        images = []
+        masks = []
 
     return images, masks
 
@@ -33,19 +55,23 @@ def train_model(images,masks,n_epochs,model_name):
     X_train, X_test, y_train, y_test = train_test_split(images, masks, test_size=0.2, random_state=42)
 
     print(len(X_train), len(X_test), len(y_train), len(y_test))
+
+    #a list of elements that starts with 0.0005 at every element and halves every 50 elements for up to 300 elements
+    learning_rates = [0.1/(3**(i//50)) for i in range(300)]
     
-    logger = io.logger_setup()
-    model = models.CellposeModel(gpu=core.use_gpu())
+    
+    model = models.CellposeModel(gpu=core.use_gpu(), model_type='cyto', device=torch.device('cuda:0'))
     new_model_path = model.train(X_train, y_train, 
                               test_data=X_test,
                               test_labels=y_test,
                               channels=[0,0], 
                               save_path='train_dir', 
                               n_epochs=n_epochs,
-                              learning_rate=0.1, 
-                              weight_decay=0.0001, 
-                              nimg_per_epoch=8,
-                              model_name=model_name)
+                              learning_rate=0.1,
+                              weight_decay=0.0001,
+                              model_name=model_name,
+                              batch_size=16,
+                              SGD=True)
 
 def get_IoU(predicted_masks,gt_masks):
     intersection_unions = []
@@ -71,20 +97,25 @@ if __name__ == '__main__':
     #TODO: get the memory usage for both models to segment 100 images
     #TODO: get the tracking function
     
-    images, masks = get_data('datasets/Fluo-N2DL-HeLa/', num_imgs=92)
+    #images, masks = get_data('datasets/Fluo-N2DL-HeLa/', num_imgs=92)
+    #images, masks = get_data('datasets/Fluo-N2DL-HeLa/', set='0102', normalise_images=False)
+    images, masks = get_data('datasets/Fluo-N2DH-GOWT1/', set='0102', normalise_images=False)
+
     print(len(images))
     print(len(masks))
     print(type(images),type(masks))
     print(images[0].shape[0])
     print(masks[0].shape[0])
-    train_model(images,masks,60,'cellpose_trained_model')
+    logger = io.logger_setup()
+    #train_model(images,masks,60,'cellpose_trained_model')
 
     X_train, X_test, y_train, y_test = train_test_split(images, masks, test_size=0.2, random_state=42)
 
     #import our trained cellpose model
     #maybe we should add "model_type='cyto'" to the model before training it
-    model = models.CellposeModel(gpu=core.use_gpu(), pretrained_model='segmentation/train_dir/models/cellpose_trained_model')
+    model = models.CellposeModel(gpu=core.use_gpu(), pretrained_model='segmentation/train_dir/models/cellpose_trained_model_GOWT1')
     predicted_masks = model.eval(X_test, batch_size=1, channels=[0,0], diameter=model.diam_labels)[0]
+    print(len(predicted_masks))
     #binarise the predicted masks
     predicted_masks = [np.where(mask>0,1,0) for mask in predicted_masks]
     y_test_binary = [np.where(mask>0,1,0) for mask in y_test]
