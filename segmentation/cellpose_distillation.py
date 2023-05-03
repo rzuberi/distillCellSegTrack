@@ -145,8 +145,6 @@ def get_dice(predicted_masks,gt_masks):
 
 if __name__ == '__main__':
 
-    
-
     #import the 02 images and masks
     images, masks = get_data("c:\\Users\\rz200\\Documents\\development\\distillCellSegTrack\\" + 'datasets/Fluo-N2DL-HeLa/',num_imgs=92)
 
