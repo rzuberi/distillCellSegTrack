@@ -107,13 +107,13 @@ if __name__ == '__main__':
     print(images[0].shape[0])
     print(masks[0].shape[0])
     logger = io.logger_setup()
-    train_model(images,masks,400,'cellpose_trained_model_SIM_3')
+    #train_model(images,masks,400,'cellpose_trained_model_SIM_3')
 
     X_train, X_test, y_train, y_test = train_test_split(images, masks, test_size=0.2, random_state=42)
 
     #import our trained cellpose model
     #maybe we should add "model_type='cyto'" to the model before training it
-    model = models.CellposeModel(gpu=core.use_gpu(), device=torch.device("cuda:0"), pretrained_model='/Users/rz200/Documents/development/distillCellSegTrack/segmentation/train_dir/models/cellpose_trained_model_SIM_2')
+    model = models.CellposeModel(gpu=core.use_gpu(), device=torch.device("cuda:0"), pretrained_model='/Users/rz200/Documents/development/distillCellSegTrack/segmentation/train_dir/models/cellpose_trained_model_SIM_3')
     predicted_masks = model.eval(X_test, batch_size=1, channels=[0,0], diameter=model.diam_labels)[0]
     print(len(predicted_masks))
     #binarise the predicted masks
