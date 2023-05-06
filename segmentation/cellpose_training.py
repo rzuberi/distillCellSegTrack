@@ -98,8 +98,8 @@ if __name__ == '__main__':
     #TODO: get the tracking function
     
     #images, masks = get_data('datasets/Fluo-N2DL-HeLa/', num_imgs=92)
-    #images, masks = get_data('datasets/Fluo-N2DL-HeLa/', set='0102', normalise_images=False)
-    images, masks = get_data('datasets/Fluo-N2DH-GOWT1/', set='0102', normalise_images=False)
+    images, masks = get_data('datasets/Fluo-N2DH-SIM+/', set='0102', normalise_images=False)
+    #images, masks = get_data('datasets/Fluo-N2DL-GOWT1/', set='0102', normalise_images=False)
 
     print(len(images))
     print(len(masks))
@@ -107,21 +107,21 @@ if __name__ == '__main__':
     print(images[0].shape[0])
     print(masks[0].shape[0])
     logger = io.logger_setup()
-    #train_model(images,masks,60,'cellpose_trained_model')
+    train_model(images,masks,400,'cellpose_trained_model_SIM_3')
 
     X_train, X_test, y_train, y_test = train_test_split(images, masks, test_size=0.2, random_state=42)
 
     #import our trained cellpose model
     #maybe we should add "model_type='cyto'" to the model before training it
-    model = models.CellposeModel(gpu=core.use_gpu(), pretrained_model='segmentation/train_dir/models/cellpose_trained_model_GOWT1')
+    model = models.CellposeModel(gpu=core.use_gpu(), device=torch.device("cuda:0"), pretrained_model='/Users/rz200/Documents/development/distillCellSegTrack/segmentation/train_dir/models/cellpose_trained_model_SIM_2')
     predicted_masks = model.eval(X_test, batch_size=1, channels=[0,0], diameter=model.diam_labels)[0]
     print(len(predicted_masks))
     #binarise the predicted masks
     predicted_masks = [np.where(mask>0,1,0) for mask in predicted_masks]
     y_test_binary = [np.where(mask>0,1,0) for mask in y_test]
 
-    print(np.unique(predicted_masks,return_counts=True))
-    print(np.unique(y_test_binary,return_counts=True))
+    #print(np.unique(predicted_masks,return_counts=True))
+    #print(np.unique(y_test_binary,return_counts=True))
 
     
     #get IoU and dice coeff
