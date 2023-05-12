@@ -61,8 +61,8 @@ if __name__ == '__main__':
 
     model = UNet()
     model = model.to('cuda:0')
-    model.load_state_dict(torch.load('c:\\Users\\rz200\\Documents\\development\\distillCellSegTrack\\segmentation\\train_dir\\models\\unet_trained_model'))
-
+    model.load_state_dict(torch.load('c:\\Users\\rz200\\Documents\\development\\distillCellSegTrack\\segmentation\\train_dir\\models\\distillation_model_GOWT1'))
+    splitted = split_image(image)
     print('Memory Differences:')
     allocated_diff = torch.cuda.memory_allocated(0)/1024**3 - allocated
     print('Allocated diff:', allocated_diff)
