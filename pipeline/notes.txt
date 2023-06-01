@@ -17,6 +17,7 @@ Pipeline:
 3) Use that U-Net to segment all the other images and output them.
 
 Extras:
+- look into docker containers
 - Have a GUI to do it all
 - Have a checkbox to ask if there already are masks of cells that can be used
 - What information do we use from Cellpose? Do we need the cell probabilities?

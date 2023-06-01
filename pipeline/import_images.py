@@ -15,7 +15,7 @@ def getImages(dir):
     return imgs
 
 if __name__ == '__main__':
-    directory = "C:\\Users\\rz200\\Documents\\development\\distillCellSegTrack\\pipeline\\uploads\\"
+    directory = "C:/Users/rz200/Documents/development/distillCellSegTrack/pipeline/uploads/"
     imgs = getImages(directory)
 
     print(imgs[0].shape)
