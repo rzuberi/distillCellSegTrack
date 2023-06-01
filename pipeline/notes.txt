@@ -1,0 +1,23 @@
+How will this pipeline work?
+
+Input: a cellpose trained model, images of cells to mask
+Output: masks of images of cells
+
+The problem is that Cellpose takes too long.
+Therefore, we distill the Cellpose model into a smaller, faster model.
+We use that faster model to create the cell masks.
+
+
+Preliminary to pipeline:
+A trained Cellpose model. Images of cells.
+
+Pipeline:
+1) Make Cellpose create masks for 5 images of cells.
+2) Train a U-Net to segment these images of cells with Cellpose masks as gt.
+3) Use that U-Net to segment all the other images and output them.
+
+Extras:
+- Have a GUI to do it all
+- Have a checkbox to ask if there already are masks of cells that can be used
+- What information do we use from Cellpose? Do we need the cell probabilities?
+- Check the size of the images and if they are above 1024 then we have to pad them to a higher value
