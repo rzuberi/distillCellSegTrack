@@ -38,7 +38,7 @@ def trainEpoch(unet, train_loader, loss_fn, optimiser, scheduler):
 
     train_loss = 0
     for image, cellprob, cellmask in train_loader:
-        (image,cellprob,cellmask) = (image.to('mps'), cellprob.to('mps'),cellmask.to('mps')) # sending the data to the device (cpu or GPU)
+        (image,cellprob,cellmask) = (image.to('cuda:0'), cellprob.to('cuda:0'),cellmask.to('cuda:0')) # sending the data to the device (cpu or GPU)
 
         image = image.unsqueeze(1)
         pred = unet(image)# make a prediction
@@ -78,11 +78,15 @@ class KDLoss(torch.nn.Module):
         self.temperature = temperature
 
     def forward(self, y_pred_logits, y_cp_true, y_cm_true):
-
-        kd_loss = F.binary_cross_entropy_with_logits(y_pred_logits, y_cm_true)
         
-        binarised = torch.where(F.sigmoid(y_pred_logits) > 0.4, 1.0, 0.0)
-        ce_loss = F.binary_cross_entropy(binarised, y_cp_true)  # compute binary cross-entropy loss
+        #y_pred_sig = torch.sigmoid(y_pred_logits)
+        #y_pred_bin = torch.where(y_pred_sig > 0.5, 1.0, 0.0)
+        #cast y_pred_bin to float
+        #y_pred_bin = y_pred_bin.type(torch.FloatTensor)
+        kd_loss = F.binary_cross_entropy_with_logits(y_pred_logits, y_cm_true)
+        ce_loss = F.binary_cross_entropy_with_logits(y_pred_logits, y_cp_true)
+        #binarised = torch.where(F.sigmoid(y_pred_logits) > 0.4, 1.0, 0.0)
+        #ce_loss = F.binary_cross_entropy(binarised, y_cp_true)  # compute binary cross-entropy loss
         #loss = F.binary_cross_entropy_with_logits(y_pred_logits, y_cm_true)
         #y_pred_mask = torch.sigmoid(y_pred_logits)  # compute predicted probabilities
         #y_pred_mask = torch.where(y_pred_mask>0.4,1.0,0.0) # binarise
@@ -114,6 +118,8 @@ class DiceLoss(torch.nn.Module):
     
 
 def trainUnet(training_images, training_probability_maps, training_cell_masks):
+    #normalise the training_images
+    training_images = [(image-np.min(image))/(np.max(image)-np.min(image)) for image in training_images]
     #normalise the probability maps
     pm_normalised = [(image-np.min(image))/(np.max(image)-np.min(image)) for image in training_probability_maps]
     #binarise the cell masks
@@ -154,14 +160,14 @@ def trainUnet(training_images, training_probability_maps, training_cell_masks):
     train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
 
     unet = UNet()
-    unet = unet.to('mps')
+    unet = unet.to('cuda:0')
     loss_fn = KDLoss()
     #loss_fn = IoULoss()
    # loss_fn = torchvision.ops.distance_box_iou_loss()
     #loss_fn = DiceLoss()
     optimiser = torch.optim.SGD(unet.parameters(), lr=0.01, momentum=0.9)
     scheduler = torch.optim.lr_scheduler.CyclicLR(optimiser, base_lr=0.0001, max_lr=0.01)
-    num_epochs = 30
+    num_epochs = 500
     
     for epoch in range(num_epochs):
         unet = trainEpoch(unet, train_loader, loss_fn, optimiser, scheduler)
@@ -184,7 +190,7 @@ if __name__ == '__main__':
     training_images = images
     training_probability_maps, training_cell_masks = makePredictions(images, cellpose_model)
 
-    unet = trainUnet(training_images, training_probability_maps, training_cell_masks)
+    unet = trainUnet(training_images[:1], training_probability_maps[:1], training_cell_masks[:1])
 
     #THE PREDICTION NEEDS TO BE MADE ON THE 256x256 images not full size
 
@@ -196,7 +202,7 @@ if __name__ == '__main__':
     #get a prediction for each
     #get the IoU metric for each and average it
 
-    pred = unet(torch.from_numpy(training_images[0]).unsqueeze(0).unsqueeze(0).to('mps'))
+    pred = unet(torch.from_numpy(training_images[0]).unsqueeze(0).unsqueeze(0).to('cuda:0'))
     pred = pred.squeeze(0).squeeze(0).cpu().detach().numpy()
     #sigmoid pred
     pred_bin = 1/(1+np.exp(-pred))
