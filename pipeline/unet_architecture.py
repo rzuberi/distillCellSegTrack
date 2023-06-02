@@ -16,7 +16,17 @@ class Block(Module):
         self.conv2 = Conv2d(outChannels, outChannels, 3, padding=1)
 
     def forward(self, x):
-        return self.conv2(self.relu(self.conv1(x))) #CONV->RELU->CONV
+        x = self.conv1(x)
+        x = self.relu(x)
+        x = self.conv2(x)
+        
+        #adding more
+        x = self.relu(x)
+        x = self.conv2(x)
+        x = self.relu(x)
+        x = self.conv2(x)
+
+        return x #CONV->RELU->CONV
 
 class Encoder(Module):
 
