@@ -101,4 +101,4 @@ class UNet(Module):
         decFeatures = self.decoder(encFeatures[::-1][0], encFeatures[::-1][1:])
         map = self.head(decFeatures)
         #map = map.repeat(1, 3, 1, 1)
-        return decFeatures, map
+        return encFeatures, decFeatures, map
