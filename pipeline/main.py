@@ -4,7 +4,7 @@
 from import_images import getImages
 from import_model import getModel
 from make_predictions import makePredictions
-from train_unet import trainUnet
+from train_model import trainUnet
 
 if __name__ == '__main__':
 
@@ -15,19 +15,19 @@ if __name__ == '__main__':
 
     #2
     #get the trained Cellpose model
-    directory = "C:\\Users\\rz200\\Documents\\development\\distillCellSegTrack\\datasets\\Fluo-C2DL-Huh7\\01\\models\\CP_20230601_101328"
-    cellpose_model = getModel(directory)
+    cellpose_model_directory = "C:\\Users\\rz200\\Documents\\development\\distillCellSegTrack\\datasets\\Fluo-C2DL-Huh7\\01\\models\\CP_20230601_101328"
+    cellpose_model = getModel(cellpose_model_directory)
 
     #3
     #use the Cellpose model to make 5 predictions from the images
     training_images = images[:5]
-    training_probability_maps, training_cell_masks = makePredictions(images[:5], cellpose_model[:5])
+    training_probability_maps, training_cell_masks = makePredictions(images[:5], cellpose_model)
     testing_images = images[5:10]
-    testing_probability_maps, testing_cell_masks = makePredictions(images[5:10], cellpose_model[5:10])
+    testing_probability_maps, testing_cell_masks = makePredictions(images[5:10], cellpose_model)
 
     #4
     #use these images to train the U-Net
-    unet = trainUnet(training_images, training_probability_maps, training_cell_masks)
+    unet = trainUnet(cellpose_model_directory, training_images, 400)
 
     #5
     #use the U-Net to make all the other predictions
