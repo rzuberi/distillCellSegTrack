@@ -21,12 +21,12 @@ class Block(Module):
         x = self.conv2(x)
         
         #adding more
-        x = self.relu(x)
-        x = self.conv2(x)
-        x = self.relu(x)
-        x = self.conv2(x)
-        x = self.relu(x)
-        x = self.conv2(x)
+        #x = self.relu(x)
+        #x = self.conv2(x)
+        #x = self.relu(x)
+        #x = self.conv2(x)
+        #x = self.relu(x)
+        #x = self.conv2(x)
 
         return x #CONV->RELU->CONV
 
