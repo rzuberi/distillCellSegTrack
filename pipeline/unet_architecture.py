@@ -84,6 +84,13 @@ class Decoder(Module):
         # return the cropped features
         return encFeatures
 
+def batchconv(in_channels, out_channels, sz):
+    return torch.nn.Sequential(
+        torch.nn.BatchNorm2d(in_channels, eps=1e-5),
+        torch.nn.ReLU(inplace=True),
+        torch.nn.Conv2d(in_channels, out_channels, sz, padding=sz//2),
+    )  
+
 class UNet(Module):
     def __init__(self, encChannels=(1, 16, 32, 64), decChannels=(64, 32), nbClasses=1, retainDim=True, outSize=(128, 128)):
         super().__init__()
@@ -91,7 +98,8 @@ class UNet(Module):
         self.encoder = Encoder(encChannels)
         self.decoder = Decoder(decChannels)
         # initialize the regression head and store the class variables
-        self.head = Conv2d(decChannels[-1], nbClasses, 1)
+        #self.head = Conv2d(decChannels[-1], nbClasses, 1)
+        self.head = batchconv(in_channels=32, out_channels=1, sz=1)
         self.retainDim = retainDim
         self.outSize = outSize
 
