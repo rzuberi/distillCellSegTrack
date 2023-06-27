@@ -5,6 +5,7 @@ from torch.nn import ReLU
 from torch.nn import ModuleList
 from torch.nn import MaxPool2d
 from torch.nn import ConvTranspose2d
+from torch.nn import BatchNorm2d
 from torchvision.transforms import CenterCrop
 
 class Block(Module):
@@ -14,6 +15,7 @@ class Block(Module):
         self.conv1 = Conv2d(inChannels, outChannels, 3, padding=1)
         self.relu = ReLU()
         self.conv2 = Conv2d(outChannels, outChannels, 3, padding=1)
+        self.batchnorm = BatchNorm2d(outChannels, eps=1e-5)
 
     def forward(self, x):
         x = self.conv1(x)
