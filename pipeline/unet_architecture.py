@@ -101,7 +101,7 @@ class UNet(Module):
         self.decoder = Decoder(decChannels)
         # initialize the regression head and store the class variables
         #self.head = Conv2d(decChannels[-1], nbClasses, 1)
-        self.head = batchconv(in_channels=32, out_channels=1, sz=1)
+        self.head = batchconv(in_channels=32, out_channels=nbClasses, sz=1)
         self.retainDim = retainDim
         self.outSize = outSize
 
