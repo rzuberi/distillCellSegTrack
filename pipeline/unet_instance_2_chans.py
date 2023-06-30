@@ -5,7 +5,8 @@ import torch
 import numpy as np
 import cv2
 from scipy.ndimage import label
-from cellpose import transforms
+from cellpose import transforms, dynamics
+import matplotlib.pyplot as plt
 
 class UNetModel:
     def __init__(self, encChannels=(2,32,64,128,256),decChannels=(256,128,64,32),nbClasses=3):
@@ -30,10 +31,24 @@ class UNetModel:
         self.model.to(self.device)
         self.model.eval()
 
-    def _process_image(self, image):
+    def predict(self, images, normalize=True):
+        if isinstance(images, np.ndarray):
+            images = [images]  # Convert single image to list
+
+        predictions = []
+        for image in images:
+            if image.shape[0] != 2:
+                image = np.array([image,image]) #2-channel images needed for model input
+            instance_segmentation, outputs, dP = self._process_image(image,normalize)
+            predictions.append([instance_segmentation,outputs, dP])
+
+        return predictions
+
+    def _process_image(self, image, normalize=True):
 
         # Pre-processing image (normalisation and tiling)
-        image = transforms.normalize_img(image)
+        if normalize:
+            image = transforms.normalize_img(image)
 
         tiles, ysub, xsub, Ly, Lx = transforms.make_tiles(image, bsize=224, 
                                                 augment=True, tile_overlap=0.1)
@@ -49,8 +64,8 @@ class UNetModel:
 
         for k in range(niter):
             irange = np.arange(batch_size*k, min(tiles.shape[0], batch_size*k+batch_size))
-            print('IMG irange',tiles[irange].shape)
-            _, _, y0_unet = self.model(torch.from_numpy(tiles[irange]).to('cuda:0'))
+            #print('IMG irange',tiles[irange].shape)
+            _, _, y0_unet = self.model(torch.from_numpy(tiles[irange]))
             y0_unet = y0_unet.cpu().detach().numpy()
             y_unet[irange] = y0_unet.reshape(len(irange), y0_unet.shape[-3], y0_unet.shape[-2], y0_unet.shape[-1])
 
@@ -64,13 +79,18 @@ class UNetModel:
         yf_t = yf.transpose(1,2,0)
         cellprob[0] = yf_t[:,:,2]
         cellprob = cellprob[0]
+        dP[:, 0] = yf[:,:,:2]
 
         # Post processing
         reassembled_image = 1 / (1 + np.exp(-cellprob))
         reassembled_image = reassembled_image > 0.5
         instance_segmentation = self._binary_to_instance(reassembled_image)
 
-        return instance_segmentation
+        outputs = dynamics.compute_masks(yf_t[:,:,:2].transpose((2,0,1)), yf_t[:,:,2], niter=156, cellprob_threshold=0,
+                                                         flow_threshold=0.4, interp=True, resize=None, 
+                                                         use_gpu=True, device="cuda:0")
+        print('ggggg')
+        return instance_segmentation, outputs, dP
 
     def _binary_to_instance(self, img):
         image = img.astype(np.uint8)
