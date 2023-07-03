@@ -7,6 +7,10 @@ import cv2
 from scipy.ndimage import label
 from cellpose import transforms, dynamics
 import matplotlib.pyplot as plt
+from scipy import ndimage as ndi
+
+from skimage.segmentation import watershed
+from skimage.feature import peak_local_max
 
 class UNetModel:
     def __init__(self, encChannels=(2,32,64,128,256),decChannels=(256,128,64,32),nbClasses=3):
@@ -39,8 +43,10 @@ class UNetModel:
         for image in images:
             if image.shape[0] != 2:
                 image = np.array([image,image]) #2-channel images needed for model input
-            instance_segmentation, outputs, dP = self._process_image(image,normalize)
-            predictions.append([instance_segmentation,outputs, dP])
+            #instance_segmentation, outputs, dP, reassembled_image, instance_segmentation_2  = self._process_image(image,normalize)
+            #predictions.append([instance_segmentation,outputs, dP, reassembled_image, instance_segmentation_2])
+            instance_segmentation = self._process_image(image,normalize)
+            predictions.append(instance_segmentation)
 
         return predictions
 
@@ -51,7 +57,7 @@ class UNetModel:
             image = transforms.normalize_img(image)
 
         tiles, ysub, xsub, Ly, Lx = transforms.make_tiles(image, bsize=224, 
-                                                augment=True, tile_overlap=0.1)
+                                                augment=False, tile_overlap=0)
 
         # Predicting
         ny, nx, nchan, ly, lx = tiles.shape
@@ -79,18 +85,35 @@ class UNetModel:
         yf_t = yf.transpose(1,2,0)
         cellprob[0] = yf_t[:,:,2]
         cellprob = cellprob[0]
-        dP[:, 0] = yf[:,:,:2]
+        print(yf.shape)
+        print(yf_t.shape)
+        print(yf[:,:,:2].shape)
+        print(yf_t[:,:,:2].shape)
+        dP[:, 0] = yf[:2]
 
         # Post processing
         reassembled_image = 1 / (1 + np.exp(-cellprob))
-        reassembled_image = reassembled_image > 0.5
-        instance_segmentation = self._binary_to_instance(reassembled_image)
+        reassembled_image_binary = reassembled_image > 0.5
+        instance_segmentation = self._binary_to_instance(reassembled_image_binary)
+
+        instance_segmentation_2 = self._new_binary_to_instance(reassembled_image_binary)
 
         outputs = dynamics.compute_masks(yf_t[:,:,:2].transpose((2,0,1)), yf_t[:,:,2], niter=156, cellprob_threshold=0,
                                                          flow_threshold=0.4, interp=True, resize=None, 
                                                          use_gpu=True, device="cuda:0")
         print('ggggg')
-        return instance_segmentation, outputs, dP
+        outputs = outputs[0]
+        #return instance_segmentation, outputs, dP, reassembled_image, instance_segmentation_2
+        return outputs
+    
+    def _new_binary_to_instance(self, img):
+        distance = ndi.distance_transform_edt(img)
+        coords = peak_local_max(distance, footprint=np.ones((3, 3)), labels=img)
+        mask = np.zeros(distance.shape, dtype=bool)
+        mask[tuple(coords.T)] = True
+        markers, _ = ndi.label(mask)
+        labels = watershed(-distance, markers, mask=img)
+        return labels
 
     def _binary_to_instance(self, img):
         image = img.astype(np.uint8)
