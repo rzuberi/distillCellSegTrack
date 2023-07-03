@@ -43,10 +43,10 @@ class UNetModel:
         for image in images:
             if image.shape[0] != 2:
                 image = np.array([image,image]) #2-channel images needed for model input
-            #instance_segmentation, outputs, dP, reassembled_image, instance_segmentation_2  = self._process_image(image,normalize)
-            #predictions.append([instance_segmentation,outputs, dP, reassembled_image, instance_segmentation_2])
-            instance_segmentation = self._process_image(image,normalize)
-            predictions.append(instance_segmentation)
+            instance_segmentation, outputs, dP, reassembled_image, instance_segmentation_2  = self._process_image(image,normalize)
+            predictions.append([instance_segmentation,outputs, dP, reassembled_image, instance_segmentation_2])
+            #instance_segmentation = self._process_image(image,normalize)
+            #predictions.append(instance_segmentation)
 
         return predictions
 
@@ -100,11 +100,11 @@ class UNetModel:
 
         outputs = dynamics.compute_masks(yf_t[:,:,:2].transpose((2,0,1)), yf_t[:,:,2], niter=156, cellprob_threshold=0,
                                                          flow_threshold=0.4, interp=True, resize=None, 
-                                                         use_gpu=True, device="cuda:0")
+                                                         use_gpu=True, device="cuda:0", min_size=15)
         print('ggggg')
         outputs = outputs[0]
-        #return instance_segmentation, outputs, dP, reassembled_image, instance_segmentation_2
-        return outputs
+        return instance_segmentation, outputs, dP, reassembled_image, instance_segmentation_2
+        #return outputs
     
     def _new_binary_to_instance(self, img):
         distance = ndi.distance_transform_edt(img)
