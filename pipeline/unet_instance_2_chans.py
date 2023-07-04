@@ -49,12 +49,18 @@ class UNetModel:
             #predictions.append(instance_segmentation)
 
         return predictions
+    
+    def normalize_un(image):
+        min_val = np.min(image)
+        max_val = np.max(image)
+        normalized_image = (image - min_val) / (max_val - min_val)
+        return normalized_image
 
     def _process_image(self, image, normalize=True):
 
         # Pre-processing image (normalisation and tiling)
         if normalize:
-            image = transforms.normalize_img(image)
+            image = self.normalize_un(image)
 
         tiles, ysub, xsub, Ly, Lx = transforms.make_tiles(image, bsize=224, 
                                                 augment=False, tile_overlap=0)
@@ -94,6 +100,7 @@ class UNetModel:
         # Post processing
         reassembled_image = 1 / (1 + np.exp(-cellprob))
         reassembled_image_binary = reassembled_image > 0.5
+        print('reasse',reassembled_image_binary.shape)
         instance_segmentation = self._binary_to_instance(reassembled_image_binary)
 
         instance_segmentation_2 = self._new_binary_to_instance(reassembled_image_binary)
@@ -113,6 +120,13 @@ class UNetModel:
         mask[tuple(coords.T)] = True
         markers, _ = ndi.label(mask)
         labels = watershed(-distance, markers, mask=img)
+
+        #removing small cells (less than 40px area)
+        unique_values = np.unique(labels[1:])
+        counts = np.bincount(labels.flatten())
+        indices_to_zero = unique_values[counts[unique_values] < 40]
+        labels[np.isin(labels, indices_to_zero)] = 0
+
         return labels
 
     def _binary_to_instance(self, img):
