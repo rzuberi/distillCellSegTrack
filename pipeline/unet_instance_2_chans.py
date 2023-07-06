@@ -11,6 +11,7 @@ from scipy import ndimage as ndi
 
 from skimage.segmentation import watershed
 from skimage.feature import peak_local_max
+import skimage.morphology as morph
 
 class UNetModel:
     def __init__(self, encChannels=(2,32,64,128,256),decChannels=(256,128,64,32),nbClasses=3):
@@ -50,7 +51,7 @@ class UNetModel:
 
         return predictions
     
-    def normalize_un(image):
+    def normalize_un(self, image):
         min_val = np.min(image)
         max_val = np.max(image)
         normalized_image = (image - min_val) / (max_val - min_val)
@@ -112,6 +113,12 @@ class UNetModel:
         outputs = outputs[0]
         return instance_segmentation, outputs, dP, reassembled_image, instance_segmentation_2
         #return outputs
+
+    def extendedmin(self, img, H):
+        mask = img.copy() 
+        marker = mask + H  
+        hmin =  morph.reconstruction(marker, mask, method='erosion')
+        return morph.local_minima(hmin)
     
     def _new_binary_to_instance(self, img):
         distance = ndi.distance_transform_edt(img)
@@ -126,6 +133,8 @@ class UNetModel:
         counts = np.bincount(labels.flatten())
         indices_to_zero = unique_values[counts[unique_values] < 40]
         labels[np.isin(labels, indices_to_zero)] = 0
+
+        #labels = self.extendedmin(labels, 0)
 
         return labels
 
