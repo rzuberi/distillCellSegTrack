@@ -36,15 +36,19 @@ class UNetModel:
         self.model.to(self.device)
         self.model.eval()
 
-    def predict(self, images, normalize=True):
+    def predict(self, images, normalize=True, channels=None):
         if isinstance(images, np.ndarray):
             images = [images]  # Convert single image to list
 
         predictions = []
         for image in images:
-            if image.shape[0] != 2:
-                image = np.array([image,image]) #2-channel images needed for model input
-            instance_segmentation, outputs, dP, reassembled_image, instance_segmentation_2  = self._process_image(image,normalize)
+            if channels is None:
+                if image.shape[0] != 2:
+                    image = np.array([image,image]) #2-channel images needed for model input
+            elif channels == [0,0]:
+                images = images
+            print('image shape',image.shape)
+            instance_segmentation, outputs, dP, reassembled_image, instance_segmentation_2  = self._process_image(image,normalize,channels=channels)
             predictions.append([instance_segmentation,outputs, dP, reassembled_image, instance_segmentation_2])
             #instance_segmentation = self._process_image(image,normalize)
             #predictions.append(instance_segmentation)
@@ -57,12 +61,14 @@ class UNetModel:
         normalized_image = (image - min_val) / (max_val - min_val)
         return normalized_image
 
-    def _process_image(self, image, normalize=True):
+    def _process_image(self, image, normalize=True, channels=None):
 
         # Pre-processing image (normalisation and tiling)
         if normalize:
             image = self.normalize_un(image)
 
+        if image.ndim == 2:
+            image = np.array([image,image])
         tiles, ysub, xsub, Ly, Lx = transforms.make_tiles(image, bsize=224, 
                                                 augment=False, tile_overlap=0)
 
@@ -78,7 +84,11 @@ class UNetModel:
         for k in range(niter):
             irange = np.arange(batch_size*k, min(tiles.shape[0], batch_size*k+batch_size))
             #print('IMG irange',tiles[irange].shape)
-            _, _, y0_unet = self.model(torch.from_numpy(tiles[irange]))
+            if channels == None:
+                _, _, y0_unet = self.model(torch.from_numpy(tiles[irange]))
+            elif channels == [0,0]:
+                print('tiles',tiles[irange].shape)
+                _, _, y0_unet = self.model(torch.from_numpy(tiles[irange][:,0,:,:]).unsqueeze(0))
             y0_unet = y0_unet.cpu().detach().numpy()
             y_unet[irange] = y0_unet.reshape(len(irange), y0_unet.shape[-3], y0_unet.shape[-2], y0_unet.shape[-1])
 
