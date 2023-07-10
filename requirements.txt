@@ -1,3 +1,4 @@
+-f https://download.pytorch.org/whl/cu113/torch_stable.html
 asttokens==2.2.1
 backcall==0.2.0
 cellpose==2.2.2
