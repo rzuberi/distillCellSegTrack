@@ -15,7 +15,7 @@ class Block(Module):
         self.conv1 = Conv2d(inChannels, outChannels, 3, padding=1)
         self.relu = ReLU()
         self.conv2 = Conv2d(outChannels, outChannels, 3, padding=1)
-        #self.batchnorm = BatchNorm2d(outChannels, eps=1e-5)
+        self.batchnorm = BatchNorm2d(outChannels, eps=1e-5)
 
     def forward(self, x):
         x = self.conv1(x)
