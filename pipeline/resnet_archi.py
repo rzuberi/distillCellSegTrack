@@ -199,7 +199,7 @@ class CPnet(nn.Module):
         self.diam_labels = nn.Parameter(data=torch.ones(1) * diam_mean, requires_grad=False)
         self.style_on = style_on
         
-    def forward(self, data):
+    def forward(self, data, training_data=False):
         if self.mkldnn:
             data = data.to_mkldnn()
         T0    = self.downsample(data)
@@ -216,7 +216,10 @@ class CPnet(nn.Module):
         if self.mkldnn:
             T0 = T0.to_dense()    
             #T1 = T1.to_dense()    
-        return T0_32, T0, style0
+        if not training_data:
+            return T0, style0
+        else:
+            return T0_32, T0
 
     def save_model(self, filename):
         torch.save(self.state_dict(), filename)
