@@ -17,7 +17,7 @@ import logging
 core_logger = logging.getLogger(__name__)
 tqdm_out = utils.TqdmToLogger(core_logger, level=logging.INFO)
 
-def pred(x, network, return_conv=False, return_training_data=False,channels=None):
+def pred(x, network, return_conv=False, return_training_data=False,channels=None, device=None):
     """ convert imgs to torch and run network model and return numpy """
     #X = x.to('cuda:0')
     X = x
@@ -27,10 +27,13 @@ def pred(x, network, return_conv=False, return_training_data=False,channels=None
             if channels == 1:
                 X = X[:, 0, :, :]
                 X = X.unsqueeze(1)
-                #X = X.to('cuda:0')
+                if device != None:
+                    X = X.to(device)
+                    network = network.to(device)
                 y, style = network(X)
             else:
-                #X = X.to('cuda:0')
+                X = X.to('cuda:0')
+                network = network.to('cuda:0')
                 y, style = network(X)
         else:
             channel_32_output, final_output = network(X, training_data=True)
@@ -45,7 +48,7 @@ def pred(x, network, return_conv=False, return_training_data=False,channels=None
     return y, style
            
 
-def run_tiled(imgi, network, augment=False, bsize=224, tile_overlap=0.1, return_conv=False, return_training_data=False,channels=None):
+def run_tiled(imgi, network, augment=False, bsize=224, tile_overlap=0.1, return_conv=False, return_training_data=False,channels=None, device=None):
         """ run network in tiles of size [bsize x bsize]
 
         First image is split into overlapping tiles of size [bsize x bsize].
@@ -91,7 +94,7 @@ def run_tiled(imgi, network, augment=False, bsize=224, tile_overlap=0.1, return_
                     ziterator = trange(Lz, file=tqdm_out)
                     for i in ziterator:
                         yfi, stylei = run_tiled(imgi[i], augment=augment,
-                                                    bsize=bsize, tile_overlap=tile_overlap)
+                                                    bsize=bsize, tile_overlap=tile_overlap, device=device)
                         yf[i] = yfi
                         styles.append(stylei)
                 else:
@@ -106,7 +109,7 @@ def run_tiled(imgi, network, augment=False, bsize=224, tile_overlap=0.1, return_
                             IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(imgi[k*nimgs+i], bsize=bsize,
                                                                             augment=augment, tile_overlap=tile_overlap)
                             IMGa[i*ntiles:(i+1)*ntiles] = np.reshape(IMG, (ny*nx, nchan, ly, lx))
-                        ya, stylea = pred(IMGa, network, channels=channels)
+                        ya, stylea = pred(IMGa, network, channels=channels, device=device)
                         for i in range(min(Lz-k*nimgs, nimgs)):
                             y = ya[i*ntiles:(i+1)*ntiles]
                             if augment:
@@ -133,7 +136,7 @@ def run_tiled(imgi, network, augment=False, bsize=224, tile_overlap=0.1, return_
                 for k in range(niter):
                     irange = slice(batch_size*k, min(IMG.shape[0], batch_size*k+batch_size))
                     input_img = torch.from_numpy(IMG[irange])
-                    y32, y0 = pred(input_img, network, return_training_data=False,channels=channels)
+                    y32, y0 = pred(input_img, network, return_training_data=False,channels=channels, device=device)
                     y0 = y0.cpu().detach().numpy()
                     y[irange] = y0.reshape(irange.stop-irange.start, y0.shape[-3], y0.shape[-2], y0.shape[-1])
                 if augment:
@@ -171,7 +174,7 @@ def run_tiled(imgi, network, augment=False, bsize=224, tile_overlap=0.1, return_
 
 
 def run_net(imgs, network, augment=False, tile=True, tile_overlap=0.1, bsize=224,
-                 return_conv=False,return_training_data=False,channels=None):
+                 return_conv=False,return_training_data=False,channels=None, device=None):
         """ run network on image or stack of images
 
         (faster if augment is False)
@@ -233,7 +236,7 @@ def run_net(imgs, network, augment=False, tile=True, tile_overlap=0.1, bsize=224
             if tile or augment or imgs.ndim==4:
                 y, style = run_tiled(imgs, network=network, augment=augment, bsize=bsize,
                                         tile_overlap=tile_overlap,
-                                        return_conv=return_conv,channels=channels)
+                                        return_conv=return_conv,channels=channels, device=device)
             else:
                 imgs = np.expand_dims(imgs, axis=0)
                 y, style = network(imgs)
@@ -258,7 +261,7 @@ def run_cp(x, network, compute_masks=True, normalize=True, invert=False,
             cellprob_threshold=0.0,
             flow_threshold=0.4, min_size=15,
             interp=True, anisotropy=1.0, do_3D=False, stitch_threshold=0.0,
-            return_training_data=False,channels=None):
+            return_training_data=False,channels=None,device=None):
    
     tic = time.time()
     shape = x.shape
@@ -289,7 +292,7 @@ def run_cp(x, network, compute_masks=True, normalize=True, invert=False,
             #                            tile_overlap=tile_overlap)
 
             yf, style = run_net(img, network=network, augment=augment, tile=tile, tile_overlap=0.1, bsize=224,
-                    return_conv=False,channels=channels)
+                    return_conv=False,channels=channels, device=device)
             if resample:
                 yf = transforms.resize_image(yf, shape[1], shape[2])
 
@@ -310,6 +313,7 @@ def run_cp(x, network, compute_masks=True, normalize=True, invert=False,
             masks, p = [], []
             resize = [shape[1], shape[2]] if not resample else None
             use_gpu = torch.cuda.is_available()
+            print(use_gpu)
             device = torch.device('cuda' if use_gpu else 'cpu')
             for i in iterator:
                 outputs = dynamics.compute_masks(dP[:,i], cellprob[i], niter=niter, cellprob_threshold=cellprob_threshold,
@@ -454,7 +458,8 @@ def make_prediction(x, model, device, type):
     x = x.transpose((0,2,3,1))
 
     if type == 'nuclei':
-        masks, styles, dP, cellprob, p = run_cp(x,model,channels=1,rescale=1.283732,return_training_data=False)
+        masks, styles, dP, cellprob, p = run_cp(x,model,channels=1,rescale=1.283732,return_training_data=False, device=device)
+        return masks
     elif type == 'cell':
-        masks, styles, dP, cellprob, p = run_cp(x,model,channels=2,rescale=1.283732,return_training_data=False)
+        masks, styles, dP, cellprob, p = run_cp(x,model,channels=2,rescale=1.283732,return_training_data=False, device=device)
         return masks[0]
