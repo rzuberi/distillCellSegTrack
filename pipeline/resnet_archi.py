@@ -217,7 +217,7 @@ class CPnet(nn.Module):
             T0 = T0.to_dense()    
             #T1 = T1.to_dense()    
         if not training_data:
-            return T0, style0
+            return T0_32, T0
         else:
             return T0_32, T0
 
