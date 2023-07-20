@@ -2,22 +2,26 @@ import numpy as np
 import torch
 from cellpose import resnet_torch
 from cellpose import transforms, dynamics
+import cv2
 import time
+from unet_architecture import UNet
 import torch
 from torch.utils.data import Dataset, DataLoader
 import torch.nn.functional as F
 from torchmetrics.classification import BinaryJaccardIndex
+import torchvision
 import numpy as np
 from sklearn.model_selection import train_test_split
-import os
 import matplotlib.pyplot as plt
+import os
 from resnet_archi import CPnet
-from cellpose import utils, models
+from cellpose import utils
 import logging
+from cellpose import models
 core_logger = logging.getLogger(__name__)
 tqdm_out = utils.TqdmToLogger(core_logger, level=logging.INFO)
 
-def pred(x, network, return_conv=False, return_training_data=False,channels=None, device=None):
+def pred(x, network, return_conv=False, return_training_data=False,channels=None):
     """ convert imgs to torch and run network model and return numpy """
     #X = x.to('cuda:0')
     X = x
@@ -27,13 +31,10 @@ def pred(x, network, return_conv=False, return_training_data=False,channels=None
             if channels == 1:
                 X = X[:, 0, :, :]
                 X = X.unsqueeze(1)
-                if device != None:
-                    X = X.to(device)
-                    network = network.to(device)
+                #X = X.to('cuda:0')
                 y, style = network(X)
             else:
-                X = X.to('cuda:0')
-                network = network.to('cuda:0')
+                #X = X.to('cuda:0')
                 y, style = network(X)
         else:
             channel_32_output, final_output = network(X, training_data=True)
@@ -48,7 +49,7 @@ def pred(x, network, return_conv=False, return_training_data=False,channels=None
     return y, style
            
 
-def run_tiled(imgi, network, augment=False, bsize=224, tile_overlap=0.1, return_conv=False, return_training_data=False,channels=None, device=None):
+def run_tiled(imgi, network, augment=False, bsize=224, tile_overlap=0.1, return_conv=False, return_training_data=False,channels=None):
         """ run network in tiles of size [bsize x bsize]
 
         First image is split into overlapping tiles of size [bsize x bsize].
@@ -94,7 +95,7 @@ def run_tiled(imgi, network, augment=False, bsize=224, tile_overlap=0.1, return_
                     ziterator = trange(Lz, file=tqdm_out)
                     for i in ziterator:
                         yfi, stylei = run_tiled(imgi[i], augment=augment,
-                                                    bsize=bsize, tile_overlap=tile_overlap, device=device)
+                                                    bsize=bsize, tile_overlap=tile_overlap)
                         yf[i] = yfi
                         styles.append(stylei)
                 else:
@@ -109,7 +110,7 @@ def run_tiled(imgi, network, augment=False, bsize=224, tile_overlap=0.1, return_
                             IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(imgi[k*nimgs+i], bsize=bsize,
                                                                             augment=augment, tile_overlap=tile_overlap)
                             IMGa[i*ntiles:(i+1)*ntiles] = np.reshape(IMG, (ny*nx, nchan, ly, lx))
-                        ya, stylea = pred(IMGa, network, channels=channels, device=device)
+                        ya, stylea = pred(IMGa, network, channels=channels)
                         for i in range(min(Lz-k*nimgs, nimgs)):
                             y = ya[i*ntiles:(i+1)*ntiles]
                             if augment:
@@ -136,7 +137,7 @@ def run_tiled(imgi, network, augment=False, bsize=224, tile_overlap=0.1, return_
                 for k in range(niter):
                     irange = slice(batch_size*k, min(IMG.shape[0], batch_size*k+batch_size))
                     input_img = torch.from_numpy(IMG[irange])
-                    y32, y0 = pred(input_img, network, return_training_data=False,channels=channels, device=device)
+                    y32, y0 = pred(input_img, network, return_training_data=False,channels=channels)
                     y0 = y0.cpu().detach().numpy()
                     y[irange] = y0.reshape(irange.stop-irange.start, y0.shape[-3], y0.shape[-2], y0.shape[-1])
                 if augment:
@@ -174,7 +175,7 @@ def run_tiled(imgi, network, augment=False, bsize=224, tile_overlap=0.1, return_
 
 
 def run_net(imgs, network, augment=False, tile=True, tile_overlap=0.1, bsize=224,
-                 return_conv=False,return_training_data=False,channels=None, device=None):
+                 return_conv=False,return_training_data=False,channels=None):
         """ run network on image or stack of images
 
         (faster if augment is False)
@@ -236,7 +237,7 @@ def run_net(imgs, network, augment=False, tile=True, tile_overlap=0.1, bsize=224
             if tile or augment or imgs.ndim==4:
                 y, style = run_tiled(imgs, network=network, augment=augment, bsize=bsize,
                                         tile_overlap=tile_overlap,
-                                        return_conv=return_conv,channels=channels, device=device)
+                                        return_conv=return_conv,channels=channels)
             else:
                 imgs = np.expand_dims(imgs, axis=0)
                 y, style = network(imgs)
@@ -261,10 +262,11 @@ def run_cp(x, network, compute_masks=True, normalize=True, invert=False,
             cellprob_threshold=0.0,
             flow_threshold=0.4, min_size=15,
             interp=True, anisotropy=1.0, do_3D=False, stitch_threshold=0.0,
-            return_training_data=False,channels=None,device=None):
+            return_training_data=False,channels=None):
    
     tic = time.time()
     shape = x.shape
+    print('shape:',shape)
     nimg = shape[0]        
    
     bd, tr = None, None
@@ -292,7 +294,7 @@ def run_cp(x, network, compute_masks=True, normalize=True, invert=False,
             #                            tile_overlap=tile_overlap)
 
             yf, style = run_net(img, network=network, augment=augment, tile=tile, tile_overlap=0.1, bsize=224,
-                    return_conv=False,channels=channels, device=device)
+                    return_conv=False,channels=channels)
             if resample:
                 yf = transforms.resize_image(yf, shape[1], shape[2])
 
@@ -313,7 +315,6 @@ def run_cp(x, network, compute_masks=True, normalize=True, invert=False,
             masks, p = [], []
             resize = [shape[1], shape[2]] if not resample else None
             use_gpu = torch.cuda.is_available()
-            print(use_gpu)
             device = torch.device('cuda' if use_gpu else 'cpu')
             for i in iterator:
                 outputs = dynamics.compute_masks(dP[:,i], cellprob[i], niter=niter, cellprob_threshold=cellprob_threshold,
@@ -356,9 +357,11 @@ def run_cp(x, network, compute_masks=True, normalize=True, invert=False,
             intermdiate_outputs.append(channel_32_outputs)
             flows_and_cellprob_output.append(final_outputs)
         return tiled_images_input, intermdiate_outputs, flows_and_cellprob_output
+    
 
 def get_cp_data_deconstructed(cpnet, combined_images,rescale):
     x = np.array([combined_images])
+    print('sssss',x.shape)
 
     if x.ndim < 4:
         x = x[np.newaxis,...]
@@ -430,36 +433,251 @@ def get_data_cp_clean(unet,combined_images,rescale):
 
     return tiled_images_final, intermediate_outputs_final, flows_and_cellprob_output_final
 
-def import_student_model(directory, n_base=[1,32],device=None):
+def get_cellpose_data(cpnet, combined_images):
+    images_tiled = []
+    ys = []
+    all_upsamples = []
 
-    #if nuclei, the n_base should start with 1
-    #if cell, the n_base should start with 2
-    model = CPnet(nbase=n_base, nout=3, sz=3,
+    for i in range(len(combined_images)):
+        print(i)
+        image_t = combined_images[i]
+
+
+        if len(image_t.shape) == 2:
+            image_t = [image_t,image_t]
+            image_t = np.array(image_t)
+        
+        image_t = transforms.normalize_img(image_t)
+
+        IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(image_t, bsize=224, 
+                                                        augment=True, tile_overlap=0.1)
+        ny, nx, nchan, ly, lx = IMG.shape
+        IMG = np.reshape(IMG, (ny*nx, nchan, ly, lx))
+        images_tiled.append(IMG)
+        batch_size = 1
+        niter = int(np.ceil(IMG.shape[0] / batch_size))
+        nout = 3 + 32*False
+        y = np.zeros((IMG.shape[0], nout, ly, lx))
+        styles = []
+
+        upsamples = []
+
+        for k in range(niter):
+            irange = np.arange(batch_size*k, min(IMG.shape[0], batch_size*k+batch_size))
+            upsample, y0 = get_pre_activations(IMG[irange], cpnet)
+            upsamples.append(upsample)
+            y[irange] = y0.reshape(len(irange), y0.shape[-3], y0.shape[-2], y0.shape[-1])
+
+        ys.append(y)
+
+        upsamples = np.array(upsamples)
+        all_upsamples.append(upsamples)
+
+    images_tiled_np = np.array(images_tiled)
+    ys_np = np.array(ys)
+    all_upsamples_np = np.array(all_upsamples)
+
+    images_tiled_np = images_tiled_np.reshape(images_tiled_np.shape[0]*images_tiled_np.shape[1], images_tiled_np.shape[2], images_tiled_np.shape[3], images_tiled_np.shape[4])
+    ys_np = ys_np.reshape(ys_np.shape[0]*ys_np.shape[1], ys_np.shape[2], ys_np.shape[3], ys_np.shape[4])
+    all_upsamples_np = all_upsamples_np.reshape(all_upsamples_np.shape[0]*all_upsamples_np.shape[1], all_upsamples_np.shape[2], all_upsamples_np.shape[3], all_upsamples_np.shape[4])
+        
+    return images_tiled_np, ys_np, all_upsamples_np
+
+class KD_loss(torch.nn.Module):
+    def __init__(self, alpha, beta):
+        super(KD_loss, self).__init__()
+        self.alpha = alpha
+        self.beta = beta
+
+    def forward(self, y_32_pred, y_32_true, y_3_pred, y_3_true):
+
+        y_32_loss = torch.mean(y_32_true - y_32_pred)**2
+
+        flow_loss = F.mse_loss(y_3_pred[:,:2], y_3_true[:,:2])
+        flow_loss /= 2
+
+        y_3_true_map = F.sigmoid(y_3_true[:,2])
+
+        map_loss = F.binary_cross_entropy_with_logits(y_3_pred[:,2] ,y_3_true_map)
+        y_3_loss = flow_loss + map_loss
+        
+        return y_32_loss * self.alpha, y_3_loss * self.beta
+
+def trainEpoch(unet, train_loader, validation_loader, loss_fn, optimiser, scheduler, epoch_num, device, progress=True):
+    time_start = time.time()
+    
+    unet.train()
+
+    train_y_32_loss, train_map_loss, train_IoU = 0, 0, 0
+
+    for image, upsample, cp_output in train_loader:
+
+        if device is not None:
+            (image, upsample, cp_output) = (image.to(device),upsample.to(device),cp_output.to(device)) # sending the data to the device (cpu or GPU)
+
+        y_32_pred, pred = unet(image)
+        map_pred = pred
+
+        y_32_pred = y_32_pred.squeeze(1)
+        map_pred = map_pred.squeeze(1)
+
+        loss_32, loss_map = loss_fn(y_32_pred,  upsample, map_pred, cp_output) # calculate the loss of that prediction
+        loss = loss_32 + loss_map
+        train_y_32_loss += loss_32.item()
+        train_map_loss += loss_map.item()
+        
+        loss.backward()
+
+        optimiser.step() # update model parameters
+        optimiser.zero_grad()
+
+        #IoU score
+        jaccard = BinaryJaccardIndex(threshold=0.5).to(device)
+        map_pred = F.sigmoid(map_pred)
+        cp_output = F.sigmoid(cp_output)
+        cp_output = torch.where(cp_output > 0.5, 1.0, 0.0)
+        iou = jaccard(map_pred, cp_output)
+        if not torch.isnan(iou):
+            train_IoU += iou.item()
+        else:
+            train_IoU += 0
+
+        del image
+        del upsample
+        del cp_output
+        torch.cuda.empty_cache()
+
+    if scheduler is not None:
+        scheduler.step()
+
+    train_y_32_loss, train_map_loss, train_IoU = train_y_32_loss/len(train_loader), train_map_loss/len(train_loader), train_IoU/len(train_loader)
+
+
+    val_y_32_loss, val_map_loss, val_IoU = 0, 0, 0
+    for image, upsample, cp_output in validation_loader:
+        
+        #image, upsample, cp_output = image.float(), upsample.float(), cp_output.float() #cast to float32 (important for mps)
+
+        if device is not None:
+            (image, upsample, cp_output) = (image.to(device),upsample.to(device),cp_output.to(device)) # sending the data to the device (cpu or GPU)
+
+        #image = image.unsqueeze(1)
+        y_32_pred, pred = unet(image)
+        #flow_pred = pred[:,1:]
+        map_pred = pred
+
+        y_32_pred = y_32_pred.squeeze(1)
+        map_pred = map_pred.squeeze(1)
+
+        loss_32, loss_map = loss_fn(y_32_pred,  upsample, map_pred, cp_output) # calculate the loss of that prediction
+        #loss = loss_32 + loss_map
+        val_y_32_loss += loss_32.item()
+        val_map_loss += loss_map.item()
+
+        #IoU score
+        jaccard = BinaryJaccardIndex(threshold=0.5).to(device)
+        map_pred = F.sigmoid(map_pred)
+        cp_output = F.sigmoid(cp_output)
+        cp_output = torch.where(cp_output > 0.5, 1.0, 0.0)
+        iou = jaccard(map_pred, cp_output)
+        if not torch.isnan(iou):
+            val_IoU += iou.item()
+        else:
+            val_IoU += 0
+
+        del image
+        del upsample
+        del cp_output
+        torch.cuda.empty_cache()
+
+    val_y_32_loss, val_map_loss, val_IoU = val_y_32_loss/len(validation_loader), val_map_loss/len(validation_loader), val_IoU/len(validation_loader)
+    
+    #we might add displaying later on
+    if progress:
+        if epoch_num is None:
+            print('Train 32 loss: ', train_y_32_loss,'Train map loss', train_map_loss, 'Train IoU', train_IoU, 'Val 32 loss: ', val_y_32_loss, 'Val map loss: ', val_map_loss, 'Val IoU: ', val_IoU, 'Time: ', time.time()-time_start)
+        else:
+            print('Epoch: ', epoch_num, 'Train 32 loss: ', train_y_32_loss,'Train map loss', train_map_loss, 'Train IoU', train_IoU, 'Val 32 loss: ', val_y_32_loss, 'Val map loss: ', val_map_loss, 'Val IoU: ', val_IoU, 'Time: ', time.time()-time_start)
+        
+    torch.cuda.empty_cache()
+
+    return unet, train_y_32_loss, train_map_loss, train_IoU, val_y_32_loss, val_map_loss, val_IoU
+
+def train_model(images,cellpose_model_directory,n_base,num_epochs,name_of_model,device=None,progress=True,seed=None):
+
+    cellpose_model = CPnet(nbase=[2,32,64,128,256],nout=3,sz=3,residual_on=True)
+    cellpose_model.load_model(cellpose_model_directory)
+
+    #we would ideally want to gather the data here and not have to give it
+    
+    #training the model
+    
+    torch.manual_seed(seed)
+    student_model = CPnet(nbase=n_base, nout=3, sz=3,
                 residual_on=True, style_on=True, 
                 concatenation=False, mkldnn=False)
-
+    
     if device is not None:
-        model = model.to(device)
+        student_model = student_model.to(device)
 
-    model.load_model(directory)
+    loss_fn = KD_loss(alpha=2, beta=1)
+    optimiser = torch.optim.Adam(student_model.parameters(), lr=0.01)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimiser, step_size=5, gamma=0.1)
 
-    return model
+    best_val_map_loss = 1000
+    for epoch in range(num_epochs):
+        student_model, train_y_32_loss, train_map_loss, train_IoU, val_y_32_loss, val_map_loss, val_IoU = trainEpoch(student_model, train_loader, validation_loader, loss_fn, optimiser, scheduler=scheduler, epoch_num=epoch, device=device, progress=True)
+        if val_map_loss < best_val_map_loss:
+            best_val_map_loss = val_map_loss
+            torch.save(student_model.state_dict(), name_of_model)
 
-def make_prediction(x, model, device, type):
-    #type can be 'nuclei' or 'cell'
+    return student_model
 
-    if not isinstance(x, list):
-        x = np.array([x])
-    #if there is only one channel, copy the channel to make it 2 channels
-    if x.shape[0] == 1:
-        x = np.repeat(x, 2, axis=0)
-    if x.ndim < 4:
-        x = x[np.newaxis,...]
-    x = x.transpose((0,2,3,1))
+class ImageDataset(Dataset):
+    def __init__(self, image, upsample, cellprob):
+        self.image = image
+        self.upsample = upsample
+        self.cellprob = cellprob
 
-    if type == 'nuclei':
-        masks, styles, dP, cellprob, p = run_cp(x,model,channels=1,rescale=1.283732,return_training_data=False, device=device)
-        return masks
-    elif type == 'cell':
-        masks, styles, dP, cellprob, p = run_cp(x,model,channels=2,rescale=1.283732,return_training_data=False, device=device)
-        return masks[0]
+    def __len__(self):
+        return len(self.image)
+
+    def __getitem__(self, idx):
+        img = self.image[idx]
+        upsample = self.upsample[idx]
+        cellprob = self.cellprob[idx]
+        return img, upsample, cellprob
+
+if __name__ == '__main__':
+    cellpose_model_directory = "/Users/rz200/Documents/development/distillCellSegTrack/pipeline/CellPose_models/U2OS_Tub_Hoechst"
+
+    #Whole cellpose model
+    segmentation_model = models.CellposeModel(gpu=True, model_type=cellpose_model_directory)
+    n_channels = [[1, 1]]
+    rescale = segmentation_model.diam_mean / segmentation_model.diam_labels
+
+    #Only the architecture, easier to extract the data
+    cpnet = CPnet(nbase=[2,32,64,128,256],nout=3,sz=3,residual_on=True)
+    cpnet.load_model(cellpose_model_directory)
+
+    image_folder = 'C:/Users/rz200/Documents/development/distillCellSegTrack/pipeline/saved_cell_images_1237'
+    combined_images = []
+
+    for filename in os.listdir(image_folder):
+        if filename.endswith('.npy'):
+            image_path = os.path.join(image_folder,filename)
+            numpy_image = np.load(image_path)
+            combined_images.append(numpy_image)
+    
+    combined_images = combined_images[:1]
+    tiled_images_final, intermediate_outputs_final, flows_and_cellprob_output_final = get_data_cp_clean(cpnet,combined_images,rescale=1.28)
+
+    train_images_tiled, val_images_tiled, train__upsamples, val__upsamples, train_ys, val_ysm = train_test_split(tiled_images_final[:10],intermediate_outputs_final[:10], flows_and_cellprob_output_final[:10], test_size=0.1, random_state=42)
+
+    train_dataset = ImageDataset(train_images_tiled, train__upsamples, train_ys)
+    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
+
+    validation_dataset = ImageDataset(val_images_tiled, val__upsamples, val_ysm)
+    validation_loader = DataLoader(validation_dataset, batch_size=8, shuffle=True)
+
+    student_model = train_model(combined_images,cellpose_model_directory,[2,32,64],100,'resnet_test_distill',device='cuda:0',progress=True,seed=4)
