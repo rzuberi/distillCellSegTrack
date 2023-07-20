@@ -4,6 +4,7 @@ import os
 import numpy as np
 from distilled_resnet import run_cp, make_prediction
 import matplotlib.pyplot as plt
+import time
 
 if __name__ == '__main__':
 
@@ -20,13 +21,16 @@ if __name__ == '__main__':
         if i == 1: 
             break
 
+    start = time.time()
     model = CPnet(nbase=[1,32], nout=3, sz=3,
                 residual_on=True, style_on=True,
                 concatenation=False, mkldnn=False)
     model.load_model("/Users/rz200/Documents/development/distillCellSegTrack/pipeline/resnet_nuc_32", device=torch.device('cuda:0'))
     print(combined_images[0][1].shape)
-    prediction = make_prediction(combined_images[0][1],model, 'cuda:0', 'nuclei')
+    prediction = make_prediction(combined_images[0][1], model, 'cuda:0', 'nuclei')
 
-    print(prediction)
+    end = time.time()
+    print(end - start)
+
     plt.imshow(prediction)
     plt.show()
