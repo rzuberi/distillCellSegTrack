@@ -29,7 +29,6 @@ def pred(x, network, return_conv=False, return_training_data=False,channels=None
     with torch.no_grad():
         if return_training_data == False:
             if channels == 1:
-                print("11111")
                 X = X[:, 0, :, :]
                 X = X.unsqueeze(1)
                 #X = X.to('mps')
@@ -38,12 +37,7 @@ def pred(x, network, return_conv=False, return_training_data=False,channels=None
                 #X = X.to('mps')
                 y, style = network(X)
         else:
-            if X.shape[1] == 1:
-                X = np.repeat(X,2,axis=1)
-
-                channel_32_output, final_output = network(X, training_data=True)
-            else:
-                channel_32_output, final_output = network(X, training_data=True)
+            channel_32_output, final_output = network(X, training_data=True)
             return channel_32_output, final_output
     del X
     y = y.to('mps')
@@ -55,7 +49,7 @@ def pred(x, network, return_conv=False, return_training_data=False,channels=None
     return y, style
            
 
-def run_tiled(imgi, network, augment=False, bsize=224, tile_overlap=0.1, return_conv=False, return_training_data=False,channels=None):
+def run_tiled(imgi, network, augment=False, bsize=224, tile_overlap=0.1, return_conv=False, return_training_data=False,channels=None,unnormed=None):
         """ run network in tiles of size [bsize x bsize]
 
         First image is split into overlapping tiles of size [bsize x bsize].
@@ -159,41 +153,50 @@ def run_tiled(imgi, network, augment=False, bsize=224, tile_overlap=0.1, return_
             channel_32_outputs = []
             final_outputs = []
 
+            print('imgi shape',imgi.shape)
             IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(imgi, bsize=bsize,
                                                             augment=augment, tile_overlap=tile_overlap)
 
             ny, nx, nchan, ly, lx = IMG.shape
             IMG = np.reshape(IMG, (ny*nx, nchan, ly, lx))
+
+            #IMG_hist_norm = equalized_img(imgi)[0]
+            print(imgi.shape)
+            if unnormed is not None:
+                IMG_hist_norm = adaptive_histogram_equalization(unnormed)
+                #IMG_hist_norm = transforms.normalize_img(IMG_hist_norm)
+                print(IMG_hist_norm.shape)
+                IMG_hist_norm, _, _, _, _ = transforms.make_tiles(IMG_hist_norm, bsize=bsize,
+                                                                augment=augment, tile_overlap=tile_overlap)
+                IMG_hist_norm = np.reshape(IMG_hist_norm, (ny*nx, nchan, ly, lx))
+            else:
+                IMG_hist_norm = adaptive_histogram_equalization(imgi)
+                print(IMG_hist_norm.shape)
+                IMG_hist_norm, _, _, _, _ = transforms.make_tiles(IMG_hist_norm, bsize=bsize,
+                                                                augment=augment, tile_overlap=tile_overlap)
+                IMG_hist_norm = np.reshape(IMG_hist_norm, (ny*nx, nchan, ly, lx))
+
             batch_size = 8
             niter = int(np.ceil(IMG.shape[0] / batch_size))
             nout = network.nout + 32*return_conv
             y = np.zeros((IMG.shape[0], nout, ly, lx))
-
-            img_histogram_normed = equalized_img(imgi)[0]
-            img_histogram_normed, _, _, _, _ = transforms.make_tiles(img_histogram_normed, bsize=bsize,
-                                                        augment=augment, tile_overlap=tile_overlap)
-            img_histogram_normed = np.reshape(img_histogram_normed, (ny*nx, nchan, ly, lx))
-
-
             for k in range(niter):
                 irange = slice(batch_size*k, min(IMG.shape[0], batch_size*k+batch_size))
                 input_img = torch.from_numpy(IMG[irange])
 
-                channel_32_output, final_output = pred(input_img, network, return_training_data=True,channels=channels)
-
+                channel_32_output, final_output = pred(input_img, network, return_training_data=True)
                 channel_32_outputs.append(channel_32_output)
                 final_outputs.append(final_output)
-                
-                #this is just to test with a second kind of normalisation (histogram normalisation)
-                second_irange = slice(batch_size*k, min(img_histogram_normed.shape[0], batch_size*k+batch_size))
-                second_input_img = torch.from_numpy(img_histogram_normed[second_irange])
-                tiles.append(second_input_img)
+
+                irange = slice(batch_size*k, min(IMG_hist_norm.shape[0], batch_size*k+batch_size))
+                input_img = torch.from_numpy(IMG_hist_norm[irange])
+                tiles.append(input_img)
 
             return tiles, channel_32_outputs, final_outputs
 
 
 def run_net(imgs, network, augment=False, tile=True, tile_overlap=0.1, bsize=224,
-                 return_conv=False,return_training_data=False,channels=None):
+                 return_conv=False,return_training_data=False,channels=None,unnormed=None):
         """ run network on image or stack of images
 
         (faster if augment is False)
@@ -230,24 +233,27 @@ def run_net(imgs, network, augment=False, tile=True, tile_overlap=0.1, bsize=224
             if tiled it is averaged over tiles
 
         """  
+        print('sanity',imgs.shape,unnormed.shape)
         if imgs.ndim==4:  
             # make image Lz x nchan x Ly x Lx for net
             imgs = np.transpose(imgs, (0,3,1,2))
             detranspose = (0,2,3,1)
             return_conv = False
-        elif imgs.ndim==2:
-            
-            imgs = np.expand_dims(imgs, axis=2)
-            imgs = np.transpose(imgs, (2,0,1))
-            detranspose = (1,2,0)
+
+            if unnormed is not None:
+                unnormed = np.transpose(unnormed, (0,3,1,2))
         else:
             # make image nchan x Ly x Lx for net
-            print('imgs shape',imgs.shape)
             imgs = np.transpose(imgs, (2,0,1))
             detranspose = (1,2,0)
 
+            if unnormed is not None:
+                unnormed = np.transpose(unnormed, (2,0,1))
+
         # pad image for net so Ly and Lx are divisible by 4
         imgs, ysub, xsub = transforms.pad_image_ND(imgs)
+        if unnormed is not None:
+            unnormed, _, _ = transforms.pad_image_ND(unnormed)
         # slices from padding
 #         slc = [slice(0, self.nclasses) for n in range(imgs.ndim)] # changed from imgs.shape[n]+1 for first slice size
         slc = [slice(0, imgs.shape[n]+1) for n in range(imgs.ndim)]
@@ -275,10 +281,11 @@ def run_net(imgs, network, augment=False, tile=True, tile_overlap=0.1, bsize=224
            
             return y, style
         else:
-            print('imgs 278 shape',imgs.shape)
+            print('sanity',imgs.shape,unnormed.shape)
+
             tiles, channel_32_outputs, final_outputs = run_tiled(imgs, network=network, augment=augment, bsize=bsize,
                                         tile_overlap=tile_overlap,
-                                        return_conv=return_conv, return_training_data=return_training_data)
+                                        return_conv=return_conv, return_training_data=return_training_data,unnormed=unnormed)
             return tiles, channel_32_outputs, final_outputs
 
 def run_cp(x, network, compute_masks=True, normalize=True, invert=False,
@@ -367,32 +374,35 @@ def run_cp(x, network, compute_masks=True, normalize=True, invert=False,
         flows_and_cellprob_output = []
         for i in iterator:
             img = np.asarray(x[i])
+            img_unnormed = img.copy()
             if normalize or invert:
                 img = transforms.normalize_img(img, invert=invert)
             if rescale != 1.0:
                 img = transforms.resize_image(img, rsz=rescale)
+                img_unnormed = transforms.resize_image(img_unnormed, rsz=rescale)
             #yf, style = self._run_nets(img, net_avg=net_avg,
             #                            augment=augment, tile=tile,
             #                            tile_overlap=tile_overlap)
 
             #need to return tiles, 32_channel output and flow with cellprob
-            print('img 379 shape',img.shape)
+            print('sanity',img.shape,img_unnormed.shape)
             tiles, channel_32_outputs, final_outputs = run_net(img, network=network, augment=augment, tile=tile, tile_overlap=0.1, bsize=224,
-                    return_conv=False, return_training_data=True,channels=channels)
+                    return_conv=False, return_training_data=True, unnormed=img_unnormed)
             tiled_images_input.append(tiles)
             intermdiate_outputs.append(channel_32_outputs)
             flows_and_cellprob_output.append(final_outputs)
         return tiled_images_input, intermdiate_outputs, flows_and_cellprob_output
     
 
-def get_cp_data_deconstructed(cpnet, combined_images,rescale,channels=None):
+def get_cp_data_deconstructed(cpnet, combined_images,rescale):
     x = np.array([combined_images])
     print('sssss',x.shape)
 
     if x.ndim < 4:
         x = x[np.newaxis,...]
     x = x.transpose((0,2,3,1))
-    tiled_images_input, intermdiate_outputs, flows_and_cellprob_output = run_cp(x,cpnet,rescale=rescale,return_training_data=True,channels=channels)
+
+    tiled_images_input, intermdiate_outputs, flows_and_cellprob_output = run_cp(x,cpnet,rescale=rescale,return_training_data=True)
 
     return tiled_images_input, intermdiate_outputs, flows_and_cellprob_output
 
@@ -410,8 +420,6 @@ def get_clean_train_data(tiled_images_input, intermdiate_outputs, flows_and_cell
             tiled_images_input_train_clean.append(tile)
     tiled_images_input_train_clean = torch.cat(tiled_images_input_train_clean)
     tiled_images_input_train_clean = tiled_images_input_train_clean.reshape(-1, 2, 224, 224)
-
-    print('tiled images input train clean shape',tiled_images_input_train_clean.shape)
 
     tiled_intermediate_outputs_train = intermdiate_outputs.copy()
     tiled_intermediate_outputs_train_clean = []
@@ -441,14 +449,14 @@ def get_clean_train_data(tiled_images_input, intermdiate_outputs, flows_and_cell
     return tiled_images_input_train_clean, tiled_intermediate_outputs_train_clean, tiled_flows_and_cellprob_output_train_clean
 
 
-def get_data_cp_clean(unet,combined_images,rescale,channels=None):
+def get_data_cp_clean(unet,combined_images,rescale):
     tiled_images_final = []
     intermediate_outputs_final = []
     flows_and_cellprob_output_final = []
 
     for i in range(len(combined_images)):
-        tiled_images_input, intermdiate_outputs, flows_and_cellprob_output = get_cp_data_deconstructed(unet, combined_images[i],rescale,channels=channels)
-        print('tiled images input 1',tiled_images_input[0][0].shape)
+        tiled_images_input, intermdiate_outputs, flows_and_cellprob_output = get_cp_data_deconstructed(unet, combined_images[i],rescale)
+        print(len(tiled_images_input[0]))
         tiled_images_input_train_clean, tiled_intermediate_outputs_train_clean, tiled_flows_and_cellprob_output_train_clean = get_clean_train_data(tiled_images_input, intermdiate_outputs, flows_and_cellprob_output)
         print(tiled_images_input_train_clean.shape)
         tiled_images_final.append(tiled_images_input_train_clean)
@@ -531,6 +539,87 @@ class KD_loss(torch.nn.Module):
         y_3_loss = flow_loss + map_loss
         
         return y_32_loss * self.alpha, y_3_loss * self.beta
+
+def equalized_img(img):
+    number_bins = 256
+    image_histogram, bins = np.histogram(img.flatten(), number_bins, density=True)
+    cdf = image_histogram.cumsum() # cumulative distribution function
+    cdf = (number_bins-1) * cdf / cdf[-1] # normalize
+    image_equalized = np.interp(img.flatten(), bins[:-1], cdf)
+    image_equalized = image_equalized.reshape(img.shape)
+    image_equalized = transforms.normalize_img(np.expand_dims(image_equalized,0))
+    return image_equalized
+
+import cv2
+import numpy as np
+
+def adaptive_histogram_equalization(image, clip_limit=1.0, grid_size=(8, 8), enhance_factor=1.0):
+
+    if len(image.shape) == 3 and image.shape[0] == 2:
+        print('1')
+        # Use one of the copies of the channel for processing
+        channel = image[0]
+        
+
+        # Check and convert channel to uint8 or raise an exception for unsupported data types
+        if channel.dtype == np.uint8:
+            pass
+        elif channel.dtype == np.uint16:
+            print('16 ifhiogh')
+            channel = (channel / 256).astype(np.uint8)
+        else:
+            raise ValueError("Unsupported data type. The input image must be of type uint8 or uint16.")
+
+        # Create a CLAHE object
+        clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=grid_size)
+
+        # Adjust the clip_limit based on the enhance_factor
+        enhanced_clip_limit = clip_limit * enhance_factor
+        clahe.setClipLimit(enhanced_clip_limit)
+
+        # Apply CLAHE to the channel
+        equalized_channel = clahe.apply(channel)
+
+        # Assign the equalized channel to both copies
+        equalized_image = np.array([equalized_channel, equalized_channel])
+
+        plt.imshow(equalized_image[0]);plt.show()
+
+    else:
+        print('2')
+        # Check and convert image to uint8 or raise an exception for unsupported data types
+        if image.dtype == np.uint8:
+            print('8')
+            pass
+        elif image.dtype == np.uint16:
+            print('16')
+            print(image)
+            image = (image / 256).astype(np.uint8)
+            print(image.shape)
+            print(image.dtype)
+        else:
+            raise ValueError("Unsupported data type. The input image must be of type uint8 or uint16.")
+
+        if image.shape[2] == 2:
+            image = image[:,:,0]
+        print(image.shape)
+
+        # Create a CLAHE object
+        clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=grid_size)
+
+        # Adjust the clip_limit based on the enhance_factor
+        enhanced_clip_limit = clip_limit * enhance_factor
+        clahe.setClipLimit(enhanced_clip_limit)
+
+        # Apply CLAHE to the image
+        equalized_image = clahe.apply(image)
+
+        equalized_image = np.repeat(equalized_image[:, :, np.newaxis], 2, axis=2)
+
+        print(equalized_image.shape)
+
+    return equalized_image
+
 
 def trainEpoch(unet, train_loader, validation_loader, loss_fn, optimiser, scheduler, epoch_num, device, progress=True):
     time_start = time.time()
@@ -651,7 +740,7 @@ def train_model(images,cellpose_model_directory,n_base,num_epochs,name_of_model,
 
     loss_fn = KD_loss(alpha=2, beta=1)
     optimiser = torch.optim.Adam(student_model.parameters(), lr=0.01)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimiser, step_size=5, gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimiser, step_size=20, gamma=0.1)
 
     best_val_map_loss = 1000
     for epoch in range(num_epochs):
@@ -677,16 +766,6 @@ class ImageDataset(Dataset):
         cellprob = self.cellprob[idx]
         return img, upsample, cellprob
 
-def equalized_img(img):
-    number_bins = 256
-    image_histogram, bins = np.histogram(img.flatten(), number_bins, density=True)
-    cdf = image_histogram.cumsum() # cumulative distribution function
-    cdf = (number_bins-1) * cdf / cdf[-1] # normalize
-    image_equalized = np.interp(img.flatten(), bins[:-1], cdf)
-    image_equalized = image_equalized.reshape(img.shape)
-    image_equalized = transforms.normalize_img(np.expand_dims(image_equalized,0))
-    return image_equalized
-
 def make_prediction(image, model, device, type):
     #type can be 'nuclei' or 'cell'
 
@@ -708,7 +787,7 @@ def make_prediction(image, model, device, type):
     return masks
 
 if __name__ == '__main__':
-    cellpose_model_directory = "/Users/rehanzuberi/Documents/Development/distillCellSegTrack/pipeline/CellPose_models/U2OS_Tub_Hoechst"
+    cellpose_model_directory = "/Users/rehanzuberi/Documents/Development/distillCellSegTrack/pipeline/CellPose_models/Nuclei_Hoechst"
 
     #Whole cellpose model
     segmentation_model = models.CellposeModel(gpu=True, model_type=cellpose_model_directory)
@@ -728,29 +807,31 @@ if __name__ == '__main__':
             numpy_image = np.load(image_path)
             combined_images.append(numpy_image)
 
-    combined_images = np.array(combined_images)
-    print(combined_images.shape)
-    combined_images = combined_images[:,1,:,:]
-    print(combined_images.shape)
-    #only keep first two images in the list
+    
     combined_images = combined_images[27:28]
-    print('combined_images',combined_images.shape)
-    #plt.imshow(combined_images[0]);plt.show()
-    tiled_images_final, intermediate_outputs_final, flows_and_cellprob_output_final = get_data_cp_clean(cpnet,combined_images,rescale=1.28,channels=1)
+    combined_images = np.array(combined_images)
+    combined_images = np.delete(combined_images,0,1)
+    combined_images = np.repeat(combined_images, 2, axis=1)
 
-    plt.imshow(tiled_images_final[0][0]); plt.show()
-    plt.imshow(tiled_images_final[0][1]); plt.show()
-    plt.imshow(tiled_images_final[1][0]); plt.show()
-    plt.imshow(tiled_images_final[1][1]); plt.show()
-    plt.imshow(tiled_images_final[2][0]); plt.show()
-    plt.imshow(tiled_images_final[2][1]); plt.show()
-    plt.imshow(tiled_images_final[3][0]); plt.show()
-    plt.imshow(tiled_images_final[3][1]); plt.show()
-    plt.imshow(tiled_images_final[4][0]); plt.show()
-    plt.imshow(tiled_images_final[4][1]); plt.show()
+    tiled_images_final, intermediate_outputs_final, flows_and_cellprob_output_final = get_data_cp_clean(cpnet,combined_images,rescale=1.28)
+    train_images_tiled, val_images_tiled, train__upsamples, val__upsamples, train_ys, val_ysm = train_test_split(tiled_images_final,intermediate_outputs_final, flows_and_cellprob_output_final, test_size=0.1, random_state=42)
+
+    plt.subplot(1,4,1)
+    plt.imshow(train_images_tiled[0][0])
+    plt.subplot(1,4,2)
+    plt.imshow(train_images_tiled[0][1])
+    plt.subplot(1,4,3)
+    plt.imshow(train_images_tiled[2][0])
+    plt.subplot(1,4,4)
+    plt.imshow(train_images_tiled[3][1])
+    plt.show()
 
 
-    train_images_tiled, val_images_tiled, train__upsamples, val__upsamples, train_ys, val_ysm = train_test_split(tiled_images_final[:10],intermediate_outputs_final[:10], flows_and_cellprob_output_final[:10], test_size=0.1, random_state=42)
+
+    #from train_images_tiled, remove the first channel at position 1
+
+    train_images_tiled = np.delete(train_images_tiled,0,1)
+    val_images_tiled = np.delete(val_images_tiled,0,1)
 
     train_dataset = ImageDataset(train_images_tiled, train__upsamples, train_ys)
     train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
@@ -758,12 +839,12 @@ if __name__ == '__main__':
     validation_dataset = ImageDataset(val_images_tiled, val__upsamples, val_ysm)
     validation_loader = DataLoader(validation_dataset, batch_size=8, shuffle=True)
 
-    student_model = train_model(combined_images,cellpose_model_directory,[2,32],100,'resnet_cell_32',device='mps',progress=True,seed=91694)
+    student_model = train_model(combined_images,cellpose_model_directory,[1,32],100,'resnet_nuc_32',device='mps',progress=True,seed=23944)
 
-    model = CPnet(nbase=[2,32], nout=3, sz=3,
+    model = CPnet(nbase=[2,32,64], nout=3, sz=3,
                 residual_on=True, style_on=True,
                 concatenation=False, mkldnn=False)
-    model.load_model("/Users/rehanzuberi/Documents/Development/distillCellSegTrack/pipeline/resnet_cell_32", device=torch.device('mps'))
+    model.load_model("/Users/rehanzuberi/Documents/Development/distillCellSegTrack/pipeline/resnet_cell_32", device=torch.device('cuda:0'))
 
     
 
