@@ -1,4 +1,4 @@
-# distillCellSegTrack (distilling Cellpose)
+# Distilling Cellpose (distillCellSegTrack)
 
 # Objective
 
