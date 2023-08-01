@@ -232,7 +232,4 @@ if __name__ == '__main__':
     cellpose_model_directory = "/Users/rehanzuberi/Documents/Development/distillCellSegTrack/pipeline/CellPose_models/U2OS_Tub_Hoechst"
     image_folder = "/Users/rehanzuberi/Downloads/development/distillCellSegTrack/pipeline/saved_cell_images_1237"
     
-    train_images_tiled, val_images_tiled, train_upsamples, val_upsamples, train_ys, val_ys = get_training_and_validation_data(cellpose_model_directory, image_folder, channel = 0)
-
-
-    print(len(train_images_tiled), len(val_images_tiled), len(train_upsamples), len(val_upsamples), len(train_ys), len(val_ys))
+    train_loader, validation_loader = get_training_and_validation_data(cellpose_model_directory, image_folder, channel = 0)
