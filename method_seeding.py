@@ -689,32 +689,22 @@ if __name__ == '__main__':
             image_path = os.path.join(image_folder,filename)
             numpy_image = np.load(image_path)
             combined_images.append(numpy_image)
-
     
-    
-    combined_images = combined_images[:1][0,:,:]
+    tiled_images_final, intermediate_outputs_final, flows_and_cellprob_output_final = get_data_cp_clean(cpnet,combined_images,rescale=1.28)
 
-    print(combined_images[0].shape)
+    train_images_tiled, val_images_tiled, train__upsamples, val__upsamples, train_ys, val_ysm = train_test_split(tiled_images_final[:10],intermediate_outputs_final[:10], flows_and_cellprob_output_final[:10], test_size=0.1, random_state=42)
 
-    plt.imshow(combined_images[0][0]); plt.show()
+    train_dataset = ImageDataset(train_images_tiled, train__upsamples, train_ys)
+    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
 
-    if 4 == 5:
-    
-        tiled_images_final, intermediate_outputs_final, flows_and_cellprob_output_final = get_data_cp_clean(cpnet,combined_images,rescale=1.28)
+    validation_dataset = ImageDataset(val_images_tiled, val__upsamples, val_ysm)
+    validation_loader = DataLoader(validation_dataset, batch_size=8, shuffle=True)
 
-        train_images_tiled, val_images_tiled, train__upsamples, val__upsamples, train_ys, val_ysm = train_test_split(tiled_images_final[:10],intermediate_outputs_final[:10], flows_and_cellprob_output_final[:10], test_size=0.1, random_state=42)
+    best_val_map_loss = 1000
+    for i in range(100000):
+        seed = np.random.randint(0,100000)
 
-        train_dataset = ImageDataset(train_images_tiled, train__upsamples, train_ys)
-        train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
-
-        validation_dataset = ImageDataset(val_images_tiled, val__upsamples, val_ysm)
-        validation_loader = DataLoader(validation_dataset, batch_size=8, shuffle=True)
-
-        best_val_map_loss = 1000
-        for i in range(100000):
-            seed = np.random.randint(0,100000)
-
-            student_model, val_map_loss = train_model(combined_images,cellpose_model_directory,[2,32],1,'resnet_test_distill',device='mps',progress=False,seed=seed)
-            if val_map_loss < best_val_map_loss:
-                best_val_map_loss = val_map_loss
-                print('seed:',seed,'val_map_loss:',val_map_loss)
+        student_model, val_map_loss = train_model(combined_images,cellpose_model_directory,[2,32],1,'resnet_test_distill',device='mps',progress=False,seed=seed)
+        if val_map_loss < best_val_map_loss:
+            best_val_map_loss = val_map_loss
+            print('seed:',seed,'val_map_loss:',val_map_loss)
