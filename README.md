@@ -52,3 +52,5 @@ The loss used when training our model is a combination of the following:
 
 This loss is defined in KD_loss in `train_utils.py`.
 
+# Weights&Biases experimentation results
+[We have here](https://wandb.ai/rzuberi/Cellpose%20Cell%20Segmentation%20Distillation/workspace?workspace=user-rehanzuberi) some results that were logged onto Weights&Biases from an experiment where we distilled Cellpose to segment cells and nuclei individually into models with maximum dimensions ranging from 32 to 256.
