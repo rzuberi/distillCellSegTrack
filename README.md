@@ -22,11 +22,7 @@ To distill a model in this project, there are three main steps: data gathering, 
 1. Data gathering
 The `data_utils.py` file has a `get_training_and_validation_loaders()` function which requires the path to the Cellpose model we wish to distill and the path to the images we wish to train our student model to segment. From there, we will have the the training data loader and validation data loader that we can use for the next step.
 
-<img width="570" alt="[Screenshot 2023-08-01 at 13 05 58](https://www.nature.com/articles/s41592-020-01018-x
-)" src="https://github.com/rzuberi/distillCellSegTrack/assets/56508673/de2b2b22-1432-46f9-916f-c7ab3d7e7e58">
-
-
-3. Model training
+2. Model training
 Train `train_utils.py` file has `train_model()` function which requires the following parameters in order:
 - the architecture of the model, the smallest can be `[1,32]` and Cellpose usually has an architecture of `[1,32,64,128,256]`;
 - the name of the model, as the model is trained its best version is saved locally;
@@ -43,6 +39,9 @@ There are two ways we evaluate the student model on test images against its teac
 The data we acquire from Cellpose is the following:
 - the output of the before output layer in Cellpose which consists of 32 channels;
 - the final 3-channel output consisting of flows in X, flows in Y and a probability map.
+
+<img width="570" alt="[Screenshot 2023-08-01 at 13 05 58](https://www.nature.com/articles/s41592-020-01018-x
+)" src="https://github.com/rzuberi/distillCellSegTrack/assets/56508673/de2b2b22-1432-46f9-916f-c7ab3d7e7e58">
 
 To acquire this data, in our `data_utils.py` we stripped down some functions from Cellpose and modified them to make the architecture output this data.
 
