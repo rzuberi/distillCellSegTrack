@@ -1,67 +1,234 @@
 -f https://download.pytorch.org/whl/cu113/torch_stable.html
-asttokens==2.2.1
-backcall==0.2.0
-cellpose==2.2.2
-certifi==2023.5.7
-charset-normalizer==3.2.0
-colorama==0.4.6
-comm==0.1.3
-contourpy==1.1.0
-cycler==0.11.0
-debugpy==1.6.7
-decorator==5.1.1
-executing==1.2.0
-fastremap==1.13.5
-fonttools==4.40.0
-idna==3.4
-imagecodecs==2023.3.16
-importlib-metadata==6.8.0
-importlib-resources==6.0.0
-ipykernel==6.24.0
-ipython==8.12.2
-jedi==0.18.2
-joblib==1.3.1
-jupyter_client==8.3.0
-jupyter_core==5.3.1
-kiwisolver==1.4.4
-lightning-utilities==0.9.0
-llvmlite==0.40.1
-matplotlib==3.7.1
-matplotlib-inline==0.1.6
-natsort==8.4.0
-nest-asyncio==1.5.6
-numba==0.57.1
-numpy==1.21.6
-opencv-python==4.8.0.74
-opencv-python-headless==4.8.0.74
-packaging==23.1
-parso==0.8.3
-pickleshare==0.7.5
-Pillow==10.0.0
-platformdirs==3.8.1
-prompt-toolkit==3.0.39
-psutil==5.9.5
-pure-eval==0.2.2
-Pygments==2.15.1
-pyparsing==3.1.0
-python-dateutil==2.8.2
-pywin32==306
-pyzmq==25.1.0
-requests==2.31.0
-roifile==2023.5.12
-scikit-learn==1.3.0
-scipy==1.10.1
-six==1.16.0
-stack-data==0.6.2
-threadpoolctl==3.1.0
-tifffile==2023.7.4
-torch==1.11.0+cu113
-torchmetrics==1.0.0
-torchvision==0.12.0+cu113
-tornado==6.3.2
-tqdm==4.65.0
-traitlets==5.9.0
-typing_extensions==4.7.1
-urllib3==2.0.3
-wcwidth==0.2.6
-zipp==3.16.0
+alabaster                     0.7.13
+anyio                         3.7.0
+appnope                       0.1.3
+ast_decompiler                0.7.0
+astatine                      0.3.2
+astor                         0.8.1
+astpretty                     3.0.0
+astroid                       2.15.5
+asttokens                     2.2.1
+attrs                         23.1.0
+autoflake                     1.7.8
+Babel                         2.12.1
+backcall                      0.2.0
+bandit                        1.7.5
+black                         23.3.0
+Brotli                        1.0.9
+build                         0.10.0
+cachetools                    5.3.1
+cellpose                      2.0.5
+certifi                       2023.5.7
+chardet                       5.1.0
+charset-normalizer            3.1.0
+click                         8.1.3
+cognitive-complexity          1.3.0
+colorama                      0.4.6
+comm                          0.1.3
+contourpy                     1.1.0
+coverage                      7.2.7
+cycler                        0.11.0
+darglint                      1.8.1
+debugpy                       1.6.7
+decorator                     5.1.1
+dill                          0.3.6
+distlib                       0.3.6
+dlint                         0.14.1
+doc8                          1.1.1
+docformatter                  1.7.2
+docutils                      0.19
+domdf-python-tools            3.6.1
+eradicate                     2.3.0
+exceptiongroup                1.1.1
+executing                     1.2.0
+fastapi                       0.97.0
+fastremap                     1.13.5
+filelock                      3.12.2
+flake8                        5.0.4
+flake8-2020                   1.8.1
+flake8-aaa                    0.15.0
+flake8-annotations            3.0.1
+flake8-annotations-complexity 0.0.7
+flake8-annotations-coverage   0.0.6
+flake8-bandit                 4.1.1
+flake8-black                  0.3.6
+flake8-blind-except           0.2.1
+flake8-breakpoint             1.1.0
+flake8-broken-line            0.6.0
+flake8-bugbear                23.3.12
+flake8-builtins               1.5.3
+flake8-class-attributes-order 0.1.3
+flake8-coding                 1.3.2
+flake8-cognitive-complexity   0.1.0
+flake8-comments               0.1.2
+flake8-comprehensions         3.12.0
+flake8-debugger               4.1.2
+flake8-django                 1.3
+flake8-docstrings             1.7.0
+flake8-encodings              0.5.0.post1
+flake8-eradicate              1.5.0
+flake8-executable             2.1.3
+flake8-expression-complexity  0.0.11
+flake8-fastapi                0.7.0
+flake8-fixme                  1.1.1
+flake8-functions              0.0.8
+flake8-functions-names        0.4.0
+flake8-future-annotations     0.0.5
+flake8-helper                 0.2.1
+flake8-isort                  6.0.0
+flake8-literal                1.3.0
+flake8-logging-format         0.9.0
+flake8-markdown               0.4.0
+flake8-mutable                1.2.0
+flake8-no-pep420              2.4.0
+flake8-noqa                   1.3.1
+flake8-pie                    0.16.0
+flake8-plugin-utils           1.3.2
+flake8-pyi                    22.11.0
+flake8-pylint                 0.2.0
+flake8-pytest-style           1.7.2
+flake8-quotes                 3.3.2
+flake8-rst-docstrings         0.3.0
+flake8-secure-coding-standard 1.4.0
+flake8_simplify               0.20.0
+flake8-string-format          0.3.0
+flake8-tidy-imports           4.8.0
+flake8-typing-imports         1.14.0
+flake8-use-fstring            1.4
+flake8-use-pathlib            0.3.0
+flake8-useless-assert         0.4.4
+flake8-variables-names        0.0.5
+flake8-warnings               0.4.0
+fonttools                     4.41.1
+gitdb                         4.0.10
+GitPython                     3.1.31
+gmpy2                         2.1.2
+hypothesis                    6.78.2
+hypothesmith                  0.1.9
+idna                          3.4
+imagecodecs                   2023.1.23
+imagesize                     1.4.1
+importlib-metadata            6.6.0
+importlib-resources           6.0.0
+iniconfig                     2.0.0
+ipykernel                     6.25.0
+ipython                       8.12.2
+isort                         5.12.0
+jedi                          0.19.0
+Jinja2                        3.1.2
+joblib                        1.3.1
+jupyter_client                8.3.0
+jupyter_core                  5.3.1
+jupyterlab-flake8             0.7.1
+kiwisolver                    1.4.4
+lark-parser                   0.12.0
+lazy-object-proxy             1.9.0
+libcst                        0.4.10
+lightning-utilities           0.9.0
+llvmlite                      0.40.1
+markdown-it-py                3.0.0
+MarkupSafe                    2.1.3
+matplotlib                    3.7.2
+matplotlib-inline             0.1.6
+mccabe                        0.7.0
+mdurl                         0.1.2
+mpmath                        1.3.0
+mr-proper                     0.0.7
+mypy-extensions               1.0.0
+natsort                       8.3.1
+nest-asyncio                  1.5.7
+networkx                      3.1
+numba                         0.57.1
+numpy                         1.24.4
+opencv-python                 4.7.0
+packaging                     23.1
+pandas-vet                    0.2.3
+parso                         0.8.3
+pathspec                      0.11.1
+pbr                           5.11.1
+pep8-naming                   0.13.3
+pexpect                       4.8.0
+pickleshare                   0.7.5
+Pillow                        10.0.0
+pip                           23.2.1
+pip-tools                     7.1.0
+platformdirs                  3.5.3
+pluggy                        1.0.0
+pooch                         1.7.0
+prompt-toolkit                3.0.39
+psutil                        5.9.5
+ptyprocess                    0.7.0
+pure-eval                     0.2.2
+pybetter                      0.4.1
+pycln                         2.1.5
+pycodestyle                   2.9.1
+pydantic                      1.10.9
+pydocstyle                    6.3.0
+pyemojify                     0.2.0
+pyflakes                      2.5.0
+Pygments                      2.15.1
+pylint                        2.17.4
+pyparsing                     3.0.9
+pyproject_api                 1.5.1
+pyproject_hooks               1.0.0
+PySocks                       1.7.1
+pytest                        7.3.2
+pytest-cov                    4.1.0
+pytest-sugar                  0.9.7
+python-dateutil               2.8.2
+python-dev-tools              2023.3.24
+pytz                          2023.3
+pyupgrade                     3.6.0
+PyYAML                        6.0
+pyzmq                         25.1.0
+removestar                    1.3.1
+requests                      2.31.0
+restructuredtext-lint         1.4.0
+rich                          13.4.2
+scikit-learn                  1.3.0
+scipy                         1.10.1
+setuptools                    68.0.0
+six                           1.16.0
+smmap                         5.0.0
+sniffio                       1.3.0
+snowballstemmer               2.2.0
+sortedcontainers              2.4.0
+Sphinx                        6.2.1
+sphinxcontrib-applehelp       1.0.4
+sphinxcontrib-devhelp         1.0.2
+sphinxcontrib-htmlhelp        2.0.1
+sphinxcontrib-jsmath          1.0.1
+sphinxcontrib-qthelp          1.0.3
+sphinxcontrib-serializinghtml 1.1.5
+ssort                         0.11.6
+stack-data                    0.6.2
+starlette                     0.27.0
+stdlib-list                   0.8.0
+stevedore                     5.1.0
+sympy                         1.12
+termcolor                     2.3.0
+threadpoolctl                 3.2.0
+tifffile                      2023.7.10
+tokenize-rt                   5.1.0
+tomli                         2.0.1
+tomlkit                       0.11.8
+torch                         2.0.1
+torchaudio                    2.0.2
+torchmetrics                  1.0.1
+torchvision                   0.15.2
+tornado                       6.3.2
+tox                           4.6.0
+tox-travis                    0.12
+tqdm                          4.65.0
+traitlets                     5.9.0
+typer                         0.9.0
+typing_extensions             4.6.3
+typing-inspect                0.9.0
+untokenize                    0.1.1
+urllib3                       2.0.3
+vastai                        0.1.6
+virtualenv                    20.23.0
+wcwidth                       0.2.6
+wheel                         0.41.0
+wrapt                         1.15.0
+zipp                          3.15.0
