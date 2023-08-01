@@ -169,7 +169,7 @@ def flatfield_correction(image):
         final_img = image / blurred_img_meaned
     return final_img
 
-def get_training_and_validation_data(cellpose_model_directory, image_folder, channel=None):
+def get_training_and_validation_loaders(cellpose_model_directory, image_folder, channel=None):
     # Whole cellpose model
     segmentation_model = models.CellposeModel(gpu=True, model_type=cellpose_model_directory)
     rescale = segmentation_model.diam_mean / segmentation_model.diam_labels
@@ -232,4 +232,4 @@ if __name__ == '__main__':
     cellpose_model_directory = "/Users/rehanzuberi/Documents/Development/distillCellSegTrack/pipeline/CellPose_models/U2OS_Tub_Hoechst"
     image_folder = "/Users/rehanzuberi/Downloads/development/distillCellSegTrack/pipeline/saved_cell_images_1237"
     
-    train_loader, validation_loader = get_training_and_validation_data(cellpose_model_directory, image_folder, channel = 0)
+    train_loader, validation_loader = get_training_and_validation_loaders(cellpose_model_directory, image_folder, channel = 0)
