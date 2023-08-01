@@ -2,7 +2,7 @@
 
 # Objective
 
-Here we are distilling the generalist cell segementation model Cellpose into more efficient smaller models.
+Here we are distilling the generalist cell segementation model [Cellpose](https://github.com/MouseLand/cellpose) into more efficient smaller models.
 
 Pros of Cellpose:
 - is moderately accurate in cell segmentations out of the box;
