@@ -4,6 +4,7 @@ import torch
 import torch.nn.functional as F
 from torchmetrics.classification import BinaryJaccardIndex
 from resnet_archi import CPnet
+from data_utils import get_training_and_validation_loaders
 
 class KD_loss(torch.nn.Module):
     def __init__(self, alpha, beta):
@@ -138,17 +139,12 @@ def train_model(n_base,num_epochs,name_of_model, train_loader, validation_loader
 
     return student_model
 
-
-    
-
-from data_utils import get_training_and_validation_data
-
 if __name__ == '__main__':
 
-    cellpose_model_directory = "/Users/rehanzuberi/Documents/Development/distillCellSegTrack/pipeline/CellPose_models/Nuclei_Hoechst"
-    image_folder = "/Users/rehanzuberi/Downloads/development/distillCellSegTrack/pipeline/saved_cell_images_1237"
+    cellpose_model_directory = "/Users/rehanzuberi/Downloads/development/distillCellSegTrack/cellpose_models/Nuclei_Hoechst"
+    image_folder = "/Users/rehanzuberi/Downloads/development/distillCellSegTrack/saved_cell_images_1237"
     
-    train_loader, validation_loader = get_training_and_validation_data(cellpose_model_directory, image_folder, channel = 0)
+    train_loader, validation_loader = get_training_and_validation_loaders(cellpose_model_directory, image_folder, channel = 0, augment = True)
 
     student_model = train_model([1,32],100,'resnet_nuc_32',train_loader, validation_loader, device='mps',progress=True,seed=23944)
 
