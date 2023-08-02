@@ -7,6 +7,8 @@ from resnet_archi import CPnet
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset, DataLoader
 
+import matplotlib.pyplot as plt
+
 def pred(x, network):
     """ convert imgs to torch and run network model and return numpy """
     X = x
@@ -27,6 +29,7 @@ def run_tiled(imgi, network, unnormed, augment=False, bsize=224, tile_overlap=0.
     IMG = make_tiles_and_reshape(imgi, bsize, augment, tile_overlap)
 
     IMG_flatfield_corrected = flatfield_correction(unnormed)
+    IMG_flatfield_corrected = transforms.normalize_img(IMG_flatfield_corrected)
     IMG_flatfield_corrected = make_tiles_and_reshape(IMG_flatfield_corrected, bsize, augment, tile_overlap)
 
     batch_size = 8
@@ -169,7 +172,16 @@ def flatfield_correction(image):
         final_img = image / blurred_img_meaned
     return final_img
 
-def get_training_and_validation_loaders(cellpose_model_directory, image_folder, channel=None):
+def adjust_brightness(image, brightness_factor):
+    # Ensure the image has values in the range [0, 1]
+    #image = torch.clamp(image, 0.0, 1.0)
+    # Apply brightness adjustment
+    adjusted_image = image * brightness_factor
+    # Clip again to ensure values are still in the range [0, 1]
+    # adjusted_image = torch.clamp(adjusted_image, 0.0, 1.0)
+    return adjusted_image
+
+def get_training_and_validation_loaders(cellpose_model_directory, image_folder, channel=None, augment=False):
     # Whole cellpose model
     segmentation_model = models.CellposeModel(gpu=True, model_type=cellpose_model_directory)
     rescale = segmentation_model.diam_mean / segmentation_model.diam_labels
@@ -192,9 +204,48 @@ def get_training_and_validation_loaders(cellpose_model_directory, image_folder, 
     else:
         combined_images = np.array(combined_images)
 
+    #ATTENTION: this is to train models faster, but in experiments we would want to use more images
     combined_images = combined_images[27:28]
 
     tiled_images_final, intermediate_outputs_final, flows_and_cellprob_output_final = get_data_cp_clean(cpnet, combined_images, rescale=rescale)
+
+    if augment == True:
+        #Brightness augmentation
+        brightness_min = 0.1
+        brightness_max = 3
+
+        new_tiled_images_final = []
+        new_intermediate_outputs_final = []
+        new_flows_and_cellprob_output_final = []
+
+        #generate a list of random numbers that is the same length as range(tiled_images_final.shape[0])
+        np.random.seed(42)
+        random_numbers = np.random.uniform(0, 1, tiled_images_final.shape[0])
+
+        # Iterate through the tensors in tiled_images_final
+        for image_idx in range(tiled_images_final.shape[0]):
+            # Get the original image tensor from tiled_images_final
+            original_image = tiled_images_final[image_idx]
+
+            # Append the original tensor (without brightness changes) to the list
+            new_tiled_images_final.append(original_image)
+            new_intermediate_outputs_final.append(intermediate_outputs_final[image_idx])
+            new_flows_and_cellprob_output_final.append(flows_and_cellprob_output_final[image_idx])
+
+            # Apply random brightness change with a probability of 0.5
+            if random_numbers[image_idx] < 0.5:
+                brightness_factor = torch.tensor([torch.FloatTensor(1).uniform_(brightness_min, brightness_max)])
+                new_image = adjust_brightness(original_image, brightness_factor)
+
+                # Append the new tensor with brightness changes to the list
+                new_tiled_images_final.append(new_image)
+                new_intermediate_outputs_final.append(intermediate_outputs_final[image_idx])
+                new_flows_and_cellprob_output_final.append(flows_and_cellprob_output_final[image_idx])
+
+        # Convert the lists to PyTorch tensors
+        tiled_images_final = torch.stack(new_tiled_images_final)
+        intermediate_outputs_final = torch.stack(new_intermediate_outputs_final)
+        flows_and_cellprob_output_final = torch.stack(new_flows_and_cellprob_output_final)
 
     train_images_tiled, val_images_tiled, train_upsamples, val_upsamples, train_ys, val_ys = train_test_split(
         tiled_images_final, intermediate_outputs_final, flows_and_cellprob_output_final,
@@ -229,7 +280,7 @@ class ImageDataset(Dataset):
         return img, upsample, cellprob
 
 if __name__ == '__main__':
-    cellpose_model_directory = "/Users/rehanzuberi/Documents/Development/distillCellSegTrack/pipeline/CellPose_models/U2OS_Tub_Hoechst"
-    image_folder = "/Users/rehanzuberi/Downloads/development/distillCellSegTrack/pipeline/saved_cell_images_1237"
+    cellpose_model_directory = "/Users/rehanzuberi/Downloads/development/distillCellSegTrack/cellpose_models/Nuclei_Hoechst"
+    image_folder = "/Users/rehanzuberi/Downloads/development/distillCellSegTrack/saved_cell_images_1237"
     
-    train_loader, validation_loader = get_training_and_validation_loaders(cellpose_model_directory, image_folder, channel = 0)
+    train_loader, validation_loader = get_training_and_validation_loaders(cellpose_model_directory, image_folder, channel=0, augment=True)
