@@ -25,14 +25,12 @@ class KD_loss(torch.nn.Module):
 
         y_3_loss = flow_loss + map_loss
         
-        return y_32_loss * self.alpha, y_3_loss * self.beta, flow_loss, map_loss
+        return y_32_loss * self.alpha, y_3_loss * self.beta
 
 def trainEpoch(unet, train_loader, validation_loader, loss_fn, optimiser, scheduler, epoch_num, device, progress=True):
     time_start = time.time()
     unet.train()
     train_y_32_loss, train_map_loss, train_IoU = 0, 0, 0
-
-    total_flow_loss, total_map_loss = 0, 0
 
     for image, upsample, cp_output in train_loader:
 
@@ -43,13 +41,10 @@ def trainEpoch(unet, train_loader, validation_loader, loss_fn, optimiser, schedu
         y_32_pred = y_32_pred.squeeze(1)
         map_pred = map_pred.squeeze(1)
 
-        loss_32, loss_map, flow_loss, map_loss = loss_fn(y_32_pred,  upsample, map_pred, cp_output) # calculate the loss of that prediction
+        loss_32, loss_map = loss_fn(y_32_pred,  upsample, map_pred, cp_output) # calculate the loss of that prediction
         loss = loss_32 + loss_map
         train_y_32_loss += loss_32.item()
         train_map_loss += loss_map.item()
-
-        total_flow_loss += flow_loss.item()
-        total_map_loss = map_loss.item()
         
         loss.backward()
 
@@ -72,8 +67,6 @@ def trainEpoch(unet, train_loader, validation_loader, loss_fn, optimiser, schedu
         del upsample
         del cp_output
         torch.cuda.empty_cache()
-    
-    print(total_flow_loss, total_map_loss)
 
     if scheduler is not None:
         scheduler.step()
@@ -92,7 +85,7 @@ def trainEpoch(unet, train_loader, validation_loader, loss_fn, optimiser, schedu
         y_32_pred = y_32_pred.squeeze(1)
         map_pred = map_pred.squeeze(1)
 
-        loss_32, loss_map, _ ,_ = loss_fn(y_32_pred,  upsample, map_pred, cp_output) # calculate the loss of that prediction
+        loss_32, loss_map = loss_fn(y_32_pred,  upsample, map_pred, cp_output) # calculate the loss of that prediction
         val_y_32_loss += loss_32.item()
         val_map_loss += loss_map.item()
 
