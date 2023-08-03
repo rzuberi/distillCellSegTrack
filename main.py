@@ -6,7 +6,7 @@ if __name__ == '__main__':
     cellpose_model_directory = "/Users/rehanzuberi/Downloads/development/distillCellSegTrack/cellpose_models/Nuclei_Hoechst"
     image_folder = "/Users/rehanzuberi/Downloads/development/distillCellSegTrack/saved_cell_images_1237"
     
-    train_loader, validation_loader = get_training_and_validation_loaders(cellpose_model_directory, image_folder, channel = 0, augment = True)
+    train_loader, validation_loader = get_training_and_validation_loaders(cellpose_model_directory, image_folder, channel = 0, augment = False)
 
     #TODO: include here the "find best seed" method
 
